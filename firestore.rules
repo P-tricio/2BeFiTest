@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Development Mode: Allow all authenticated users to read/write
+    // WARNING: Update this for production!
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

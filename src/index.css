@@ -1,0 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-outfit: 'Outfit', sans-serif;
+  }
+
+  html {
+    font-family: var(--font-outfit);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900;
+  }
+}
+
+@layer components {
+
+  /* Premium Card Styles */
+  .card-base {
+    @apply bg-white rounded-3xl shadow-sm border border-slate-100 transition-all duration-300;
+  }
+
+  .card-hover {
+    @apply hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1 hover:border-blue-100;
+  }
+
+  /* Glassmorphism */
+  .glass {
+    @apply bg-white/80 backdrop-blur-lg border-t border-white/50;
+  }
+
+  .glass-dark {
+    @apply bg-slate-900/80 backdrop-blur-lg border-t border-white/10;
+  }
+
+  /* Primary Gradient Button */
+  .btn-primary {
+    @apply bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-500/30 active:scale-95 transition-all duration-200;
+  }
+
+  /* Surface Colors */
+  .surface-subtle {
+    @apply bg-slate-50;
+  }
+}
+
+.animate-enter {
+  animation: enter 0.4s ease-out forwards;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
