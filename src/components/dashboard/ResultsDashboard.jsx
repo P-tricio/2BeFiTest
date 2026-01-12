@@ -6,7 +6,7 @@ import {
     Trophy, Share2, Activity, Info,
     Zap, Dumbbell, Shuffle, Orbit, PersonStanding, Settings, Trash2,
     MessageCircle, Globe, ChevronDown, ExternalLink, History,
-    ArrowDown, ArrowUp, Clock, Flame, Heart, Wind, Target, ArrowUpCircle, Anchor, RotateCw, Maximize2, Camera, X
+    ArrowDown, ArrowUp, Clock, Flame, Heart, Wind, Target, ArrowUpCircle, Anchor, RotateCw, Maximize2, Camera, X, LogOut
 } from 'lucide-react';
 import RadarChart from '../common/RadarChart';
 import clsx from 'clsx';
@@ -292,6 +292,27 @@ const ResultsDashboard = () => {
                 {/* Contact & Premium Section */}
                 <ContactSection />
 
+
+                {hasAuth && (
+                    <div className="flex gap-4 mb-6">
+                        <button
+                            onClick={async () => {
+                                try {
+                                    const { signOut } = await import('firebase/auth');
+                                    const { auth } = await import('../../lib/firebase');
+                                    await signOut(auth);
+                                    useStore.getState().setAuthUser(null);
+                                    navigate('/login');
+                                } catch (error) {
+                                    console.error("Logout Error:", error);
+                                }
+                            }}
+                            className="flex-1 bg-slate-900 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg shadow-slate-300"
+                        >
+                            <LogOut size={20} /> Cerrar Sesión
+                        </button>
+                    </div>
+                )}
 
                 {hasAuth && (
                     <div className="flex gap-4 mb-6">

@@ -24,6 +24,7 @@ const HandTappingTest = () => {
     // Refs
     // we use refs for intervals to clear them easily
     const intervalRef = useRef(null);
+    const lastTapTime = useRef(0);
 
     // --- COOLDOWN EFFECT ---
     // Whenever we enter 'rest' or 'completed', enforce a small cooldown
@@ -121,9 +122,19 @@ const HandTappingTest = () => {
         setStage('countdown');
     };
 
-    const handleTap = () => {
+    const handleTap = (e) => {
+        if (e) e.preventDefault();
+
+        const now = Date.now();
+        // Debounce: Ignore touches within 80ms of the last one to prevent multi-finger accidental counting
+        if (now - lastTapTime.current < 80) return;
+
         if (stage === 'testing') {
+            lastTapTime.current = now;
             setTaps(prev => prev + 1);
+
+            // Haptic feedback if available (Mobile only)
+            if (navigator.vibrate) navigator.vibrate(5);
         }
     };
 
@@ -140,8 +151,6 @@ const HandTappingTest = () => {
         setResults({ right: 0, left: 0 });
         setTaps(0);
     };
-
-    // --- RENDERERS ---
 
     // --- RENDERERS ---
 
@@ -171,9 +180,9 @@ const HandTappingTest = () => {
                         </h3>
                         <ol className="list-decimal pl-5 space-y-3 text-slate-600 text-sm marker:text-blue-500 marker:font-bold">
                             <li>Siéntate con los pies separados.</li>
-                            <li><strong>Mano DERECHA:</strong> Pon el móvil en tu rodilla DERECHA.</li>
-                            <li>Toca la pantalla y tu rodilla IZQUIERDA alternativamente.</li>
-                            <li>Repite con la otra mano.</li>
+                            <li><strong>Mano DERECHA (Test):</strong> Móvil en rodilla IZQUIERDA (sujétalo con mano izquierda).</li>
+                            <li>Toca la pantalla y tu rodilla DERECHA alternativamente.</li>
+                            <li>Repite con la otra mano (cruzado).</li>
                         </ol>
                     </div>
                 </div>
@@ -199,7 +208,7 @@ const HandTappingTest = () => {
                     <h2 className="text-4xl font-black text-slate-900 leading-tight">
                         {isRight ? 'Mano Derecha' : 'Mano Izquierda'}
                     </h2>
-                    <p className="text-slate-500 font-medium">Mano activa</p>
+                    <p className="text-slate-500 font-medium">Mano que realiza el test</p>
                 </div>
 
                 <div className="card-base p-8 w-full max-w-xs text-center space-y-4">
@@ -207,8 +216,8 @@ const HandTappingTest = () => {
                         <Timer size={32} />
                     </div>
                     <p className="text-slate-700 font-medium leading-relaxed">
-                        Coloca el móvil en tu rodilla <strong className="text-blue-600">{isRight ? 'DERECHA' : 'IZQUIERDA'}</strong>.
-                        <br /><span className="text-sm text-slate-400 mt-2 block">Sujétalo con la otra mano.</span>
+                        Coloca el móvil en tu rodilla <strong className="text-blue-600">{isRight ? 'IZQUIERDA' : 'DERECHA'}</strong>.
+                        <br /><span className="text-sm text-slate-400 mt-2 block">Sujétalo con la mano {isRight ? 'izquierda' : 'derecha'}.</span>
                     </p>
                 </div>
 
