@@ -11,20 +11,57 @@ const BodyCompositionForm = () => {
     const setUser = useStore((state) => state.setUser);
     const results = useStore((state) => state.results);
 
-    // Initial state from user profile or existing results could be added here
+    // Initial state
     const [height, setHeight] = useState(user.height || ''); // cm
     const [weight, setWeight] = useState(''); // kg
     const [waist, setWaist] = useState(''); // cm
     const [hip, setHip] = useState(''); // cm
-    const [neck, setNeck] = useState(results.composition?.neck || ''); // cm
+    const [neck, setNeck] = useState(results.composition?.neck || ''); // cm (Optional)
 
     // UI State
-    const [step, setStep] = useState(1); // 1: Height/Weight, 2: Waist/Hip, 3: Neck, 4: Photos
+    const [step, setStep] = useState(1); // 1: Height/Weight, 2: Waist/Hip, 3: Neck (Opt), 4: Photos
     const [photos, setPhotos] = useState({ front: null, side: null, back: null });
     const [uploading, setUploading] = useState(false);
 
+    // ... (handleFileSelect and compressImage remain the same) ...
     const handleFileSelect = (type, file) => {
         setPhotos(prev => ({ ...prev, [type]: file }));
+    };
+
+    // --- Image Compression Helper ---
+    const compressImage = (file) => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 800;
+                    const MAX_HEIGHT = 800;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.5)); // 50% Quality to save DB space
+                };
+            };
+        });
     };
 
     const calculateMetrics = () => {
@@ -39,18 +76,31 @@ const BodyCompositionForm = () => {
         const icc = (waistCm / hipCm).toFixed(2); // Waist-to-Hip Ratio
         const whtr = (waistCm / hCm).toFixed(2); // Waist-to-Height Ratio
 
-        // US Navy Body Fat Formula
         const gender = user.gender || 'male';
         let bodyFat = 0;
+        let formulaUsed = 'RFM';
 
-        if (gender === 'female') {
-            bodyFat = 495 / (1.29579 - 0.35004 * Math.log10(waistCm + hipCm - neckCm) + 0.22100 * Math.log10(hCm)) - 450;
+        // Hybrid Logic
+        if (neckCm > 0) {
+            // US Navy Formula (Better for high muscle mass)
+            formulaUsed = 'Navy';
+            if (gender === 'female') {
+                bodyFat = 495 / (1.29579 - 0.35004 * Math.log10(waistCm + hipCm - neckCm) + 0.22100 * Math.log10(hCm)) - 450;
+            } else {
+                bodyFat = 495 / (1.0324 - 0.19077 * Math.log10(waistCm - neckCm) + 0.15456 * Math.log10(hCm)) - 450;
+            }
         } else {
-            bodyFat = 495 / (1.0324 - 0.19077 * Math.log10(waistCm - neckCm) + 0.15456 * Math.log10(hCm)) - 450;
+            // RFM (Relative Fat Mass) Formula (Simpler, Waist-focused)
+            // Men: 64 - (20 * (H/W))
+            // Women: 76 - (20 * (H/W))
+            if (gender === 'female') {
+                bodyFat = 76 - (20 * (hCm / waistCm));
+            } else {
+                bodyFat = 64 - (20 * (hCm / waistCm));
+            }
         }
 
         // Fat-Free Mass Index (FFMI) Calculation
-        // Useful for detecting high muscle mass
         const bodyFatValue = Math.max(0, bodyFat); // Ensure non-negative
         const leanMass = wKg * (1 - (bodyFatValue / 100));
         const ffmi = (leanMass / (hM * hM)).toFixed(1);
@@ -60,12 +110,13 @@ const BodyCompositionForm = () => {
             icc,
             whtr,
             ffmi,
-            bodyFat: bodyFat.toFixed(1)
+            bodyFat: bodyFat.toFixed(1),
+            formulaUsed
         };
     };
 
     const handleSave = async () => {
-        if (!height || !weight || !waist || !hip || !neck) return;
+        if (!height || !weight || !waist || !hip) return;
 
         setUploading(true);
 
@@ -75,40 +126,30 @@ const BodyCompositionForm = () => {
         }
 
         const stats = calculateMetrics();
-        let photoUrls = {};
+        let photoData = {};
 
-        // Upload Photos if any
+        // Process Photos
         try {
-            if (user.uid && (photos.front || photos.side || photos.back)) {
-                const { storage } = await import('../../lib/firebase');
-                const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
-
-                for (const [type, file] of Object.entries(photos)) {
-                    if (file) {
-                        const storageRef = ref(storage, `users/${user.uid}/body/${Date.now()}_${type}`);
-                        await uploadBytes(storageRef, file);
-                        const url = await getDownloadURL(storageRef);
-                        photoUrls[type] = url;
-                    }
-                }
-            }
+            if (photos.front) photoData.front = await compressImage(photos.front);
+            if (photos.side) photoData.side = await compressImage(photos.side);
+            if (photos.back) photoData.back = await compressImage(photos.back);
         } catch (error) {
-            console.error("Error uploading photos:", error);
-            // Continue saving results even if photos fail (optional?)
+            console.error("Error processing photos:", error);
         }
 
         setTestResult('composition', null, {
             weight,
             waist,
             hip,
-            neck,
+            neck: neck || null, // Optional
             height,
             bmi: stats.bmi,
             icc: stats.icc,
             whtr: stats.whtr,
             ffmi: stats.ffmi,
             bodyFat: stats.bodyFat,
-            photos: photoUrls
+            formulaUsed: stats.formulaUsed,
+            photos: photoData
         });
 
         setUploading(false);
@@ -213,7 +254,7 @@ const BodyCompositionForm = () => {
                                 <Info className="shrink-0 mt-1" size={18} />
                                 <p>
                                     <strong>Cintura:</strong> Justo por encima del ombligo.<br />
-                                    <strong>Cadera:</strong> Parte más ancha de los glúteos.
+                                    Es clave para la fórmula de grasa corporal.
                                 </p>
                             </div>
 
@@ -265,47 +306,49 @@ const BodyCompositionForm = () => {
                     </div>
                 )}
 
-                {/* Step 3: Neck (For Body Fat %) */}
+                {/* Step 3: Neck (Hybrid/Optional) */}
                 {step === 3 && (
                     <div className="space-y-6 animate-in slide-in-from-right">
                         <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100 space-y-6">
-                            <div className="bg-blue-50 p-4 rounded-xl text-blue-800 text-sm leading-relaxed flex gap-3">
+                            <div className="bg-indigo-50 p-4 rounded-xl text-indigo-900 text-sm leading-relaxed flex gap-3">
                                 <Info className="shrink-0 mt-1" size={18} />
-                                <p>
-                                    <strong>Cuello:</strong> Justo debajo de la nuez de Adán (hombres) o en la parte media (mujeres).
-                                    <br /> Esto nos permite diferenciar <strong>músculo</strong> de grasa.
-                                </p>
+                                <div>
+                                    <p className="font-bold mb-1">¿Tienes mucha masa muscular?</p>
+                                    <p>
+                                        Mide tu <strong>Cuello</strong> para usar una fórmula avanzada (Marina EEUU).
+                                        <br />Si no, puedes saltar este paso para usar la fórmula estándar basada en cintura.
+                                    </p>
+                                </div>
                             </div>
 
                             {/* Neck */}
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                                    <Ruler size={16} className="rotate-90" /> Cuello (cm)
+                                    <Ruler size={16} className="rotate-90" /> Cuello (cm) <span className="text-slate-400 text-xs normal-case">(Opcional)</span>
                                 </label>
                                 <input
                                     type="number"
                                     value={neck}
                                     onChange={(e) => setNeck(e.target.value)}
-                                    placeholder="38"
-                                    className="w-full text-4xl font-black p-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-teal-500 outline-none text-slate-900 text-center"
+                                    placeholder="40"
+                                    className="w-full text-4xl font-black p-4 rounded-2xl bg-indigo-50 border-2 border-transparent focus:border-indigo-500 outline-none text-slate-900 text-center"
                                     autoFocus
                                 />
                             </div>
                         </div>
 
-                        <div className="flex gap-4">
-                            <button
-                                onClick={() => setStep(2)}
-                                className="flex-1 text-slate-400 font-bold py-4"
-                            >
-                                Volver
-                            </button>
+                        <div className="flex flex-col gap-3">
                             <button
                                 onClick={() => setStep(4)}
-                                disabled={!neck}
-                                className="flex-[2] btn-primary py-4 text-lg flex items-center justify-center gap-2"
+                                className="btn-primary w-full py-4 text-lg flex items-center justify-center gap-2"
                             >
-                                Siguiente <ArrowRight size={20} />
+                                {neck ? 'Usar Fórmula Avanzada' : 'Saltar y Usar Estándar'} <ArrowRight size={20} />
+                            </button>
+                            <button
+                                onClick={() => setStep(2)}
+                                className="w-full text-slate-400 font-bold py-2"
+                            >
+                                Volver
                             </button>
                         </div>
                     </div>
@@ -315,16 +358,16 @@ const BodyCompositionForm = () => {
                 {step === 4 && (
                     <div className="space-y-6 animate-in slide-in-from-right">
                         <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100 space-y-4">
-                            <div className="bg-orange-50 p-4 rounded-xl text-orange-800 text-sm leading-relaxed flex gap-3">
+                            <div className="bg-blue-50 p-4 rounded-xl text-blue-800 text-sm leading-relaxed flex gap-3">
                                 <Info className="shrink-0 mt-1" size={18} />
                                 <p>
-                                    <strong>Fotos deshabilitadas:</strong> La subida de fotos está desactivada temporalmente por mantenimiento. Puedes guardar tus datos sin ellas.
+                                    <strong>Privacidad:</strong> Las fotos se guardan de forma segura. ¡Hacer fotos es opcional pero recomendado!
                                 </p>
                             </div>
 
-                            <PhotoUpload label="Frente" disabled={true} onFileSelect={(f) => handleFileSelect('front', f)} />
-                            <PhotoUpload label="Perfil" disabled={true} onFileSelect={(f) => handleFileSelect('side', f)} />
-                            <PhotoUpload label="Espalda" disabled={true} onFileSelect={(f) => handleFileSelect('back', f)} />
+                            <PhotoUpload label="Frente" disabled={uploading} onFileSelect={(f) => handleFileSelect('front', f)} />
+                            <PhotoUpload label="Perfil" disabled={uploading} onFileSelect={(f) => handleFileSelect('side', f)} />
+                            <PhotoUpload label="Espalda" disabled={uploading} onFileSelect={(f) => handleFileSelect('back', f)} />
                         </div>
 
                         <button
@@ -335,7 +378,7 @@ const BodyCompositionForm = () => {
                             {uploading ? 'Guardando...' : 'Guardar Datos'} <Save size={20} />
                         </button>
                         <button
-                            onClick={() => setStep(3)}
+                            onClick={() => setStep(2)}
                             disabled={uploading}
                             className="w-full text-slate-400 font-bold py-2"
                         >
@@ -375,7 +418,7 @@ const PhotoUpload = ({ label, onFileSelect, disabled }) => {
             <div>
                 <p className="font-bold text-slate-700">{label}</p>
                 <p className="text-xs text-slate-400">
-                    {disabled ? 'Deshabilitado' : (preview ? 'Foto seleccionada' : 'Tocar para subir')}
+                    {disabled ? 'Deshabilitado' : (preview ? 'Foto lista (Tocar para cambiar)' : 'Hacer foto / Subir archivo')}
                 </p>
             </div>
         </label>

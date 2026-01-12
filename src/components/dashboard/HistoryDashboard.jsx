@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { db } from '../../lib/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import useStore from '../../store/useStore';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from 'recharts';
-import { Calendar, TrendingUp } from 'lucide-react';
+import { Calendar, TrendingUp, Camera, X, ArrowRightLeft, Download } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import clsx from 'clsx';
 
 const HistoryDashboard = () => {
     const user = useStore((state) => state.user);
@@ -60,6 +62,18 @@ const HistoryDashboard = () => {
             bmi: parseFloat(h.data.bmi || 0)
         }))
         .filter(d => d.weight > 0) // Remove incomplete records
+        .reverse();
+
+    const photoHistory = history
+        .filter(h => h.category === 'composition' && h.data?.photos && (h.data.photos.front || h.data.photos.side || h.data.photos.back))
+        .map(h => ({
+            id: h.id,
+            date: new Date(h.timestamp.seconds * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+            fullDate: new Date(h.timestamp.seconds * 1000).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+            weight: h.data.weight,
+            fat: h.data.bodyFat,
+            photos: h.data.photos
+        }))
         .reverse();
 
     const chartConfig = [
@@ -133,6 +147,19 @@ const HistoryDashboard = () => {
                     </ChartGroup>
                 )}
 
+                {/* Photo Evolution Gallery */}
+                {photoHistory.length > 0 && (
+                    <ChartGroup
+                        title="Galería de Progreso"
+                        icon={Camera}
+                        iconBg="bg-teal-100"
+                        iconColor="text-teal-600"
+                        defaultOpen={true}
+                    >
+                        <PhotoEvolutionGallery items={photoHistory} />
+                    </ChartGroup>
+                )}
+
                 {/* Dynamic Charts for Other Tests */}
                 {chartConfig.map(config => {
                     const data = getChartData(config.id, config.key);
@@ -187,6 +214,300 @@ const HistoryDashboard = () => {
     );
 };
 
+
+const PhotoEvolutionGallery = ({ items }) => {
+    const [selectedItem, setSelectedItem] = useState(null);
+    const [compareMode, setCompareMode] = useState(false);
+    const [selectedForCompare, setSelectedForCompare] = useState([]);
+    const [showCompareModal, setShowCompareModal] = useState(false);
+    const [compareView, setCompareView] = useState('front'); // front, side, back
+    const comparisonRef = useRef(null);
+
+    const toggleSelection = (item) => {
+        if (selectedForCompare.find(i => i.id === item.id)) {
+            setSelectedForCompare(prev => prev.filter(i => i.id !== item.id));
+        } else {
+            if (selectedForCompare.length < 2) {
+                setSelectedForCompare(prev => [...prev, item].sort((a, b) => new Date(a.date) - new Date(b.date))); // Keep chronological
+            }
+        }
+    };
+
+    const handleCardClick = (item) => {
+        if (compareMode) {
+            toggleSelection(item);
+        } else {
+            setSelectedItem(item);
+        }
+    };
+
+    const handleDownloadComparison = async () => {
+        if (!comparisonRef.current) return;
+        try {
+            const canvas = await html2canvas(comparisonRef.current, {
+                backgroundColor: '#0f172a', // slate-900 matches background
+                scale: 2, // High res
+                useCORS: true, // Handle cross-origin images
+                allowTaint: true,
+                logging: false
+            });
+            const link = document.createElement('a');
+            link.download = `comparativa-progreso-${new Date().toISOString().split('T')[0]}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        } catch (error) {
+            console.error("Error generating comparison image:", error);
+        }
+    };
+
+    const sortedCompareItems = [...selectedForCompare].sort((a, b) => new Date(a.id) - new Date(b.id)); // Ensure Old vs New
+
+    return (
+        <div className="relative">
+            {/* Gallery Controls */}
+            <div className="flex justify-between items-center mb-4 px-1">
+                <div className="flex items-center gap-2">
+                    {compareMode ? (
+                        <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full animate-in fade-in">
+                            Selecciona 2 fechas ({selectedForCompare.length}/2)
+                        </span>
+                    ) : (
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Línea de Tiempo</span>
+                    )}
+                </div>
+
+                <div className="flex gap-2">
+                    {compareMode ? (
+                        <>
+                            <button
+                                onClick={() => { setCompareMode(false); setSelectedForCompare([]); }}
+                                className="px-3 py-1 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={() => setShowCompareModal(true)}
+                                disabled={selectedForCompare.length !== 2}
+                                className={clsx(
+                                    "px-4 py-1.5 text-xs font-bold text-white rounded-lg flex items-center gap-2 transition-all",
+                                    selectedForCompare.length === 2
+                                        ? "bg-indigo-600 shadow-md shadow-indigo-200 hover:scale-105 active:scale-95"
+                                        : "bg-slate-300 cursor-not-allowed"
+                                )}
+                            >
+                                <ArrowRightLeft size={14} />
+                                Comparar
+                            </button>
+                        </>
+                    ) : (
+                        <button
+                            onClick={() => setCompareMode(true)}
+                            className="px-3 py-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg flex items-center gap-1.5 transition-colors"
+                        >
+                            <ArrowRightLeft size={14} />
+                            Comparar
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Timeline Scroll Container */}
+            <div className="flex gap-4 overflow-x-auto pb-4 pt-2 px-1 snap-x snap-mandatory scrollbar-hide">
+                {items.map((item) => {
+                    const isSelected = selectedForCompare.find(i => i.id === item.id);
+                    const isDisabled = compareMode && !isSelected && selectedForCompare.length >= 2;
+
+                    return (
+                        <div
+                            key={item.id}
+                            onClick={() => !isDisabled && handleCardClick(item)}
+                            className={clsx(
+                                "flex-shrink-0 w-28 md:w-36 snap-center group cursor-pointer transition-all duration-300",
+                                isDisabled ? "opacity-40 grayscale" : "opacity-100"
+                            )}
+                        >
+                            <div className={clsx(
+                                "relative aspect-[3/4] rounded-2xl overflow-hidden shadow-sm mb-2 transition-all",
+                                isSelected ? "ring-4 ring-indigo-500 scale-105 shadow-xl shadow-indigo-200" : "border border-slate-100 bg-slate-100 group-hover:shadow-md group-hover:scale-105 group-active:scale-95"
+                            )}>
+                                {item.photos.front ? (
+                                    <img src={item.photos.front} alt={`Foto ${item.date}`} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-slate-300"><Camera size={24} /></div>
+                                )}
+
+                                {/* Overlay / Checkbox for Selection */}
+                                {compareMode && (
+                                    <div className={clsx(
+                                        "absolute inset-0 flex items-center justify-center transition-all bg-black/20",
+                                        isSelected ? "bg-indigo-500/20" : ""
+                                    )}>
+                                        <div className={clsx(
+                                            "w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm",
+                                            isSelected ? "bg-indigo-600 text-white scale-110" : "bg-white/80 text-transparent border-2 border-slate-200"
+                                        )}>
+                                            {isSelected && <ArrowRightLeft size={16} />}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {!compareMode && (
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center p-2">
+                                        <span className="text-white text-[10px] font-bold uppercase tracking-wider">Ver Todo</span>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="text-center">
+                                <p className={clsx("font-bold text-xs transition-colors", isSelected ? "text-indigo-600" : "text-slate-800")}>{item.date}</p>
+                                <p className="text-[10px] text-slate-400 font-bold">
+                                    {item.weight ? `${item.weight}kg` : ''}
+                                    {item.weight && item.fat ? ' • ' : ''}
+                                    {item.fat ? `${item.fat}%` : ''}
+                                </p>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Single Viewer Modal */}
+            {selectedItem && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setSelectedItem(null)}>
+                    <div className="w-full max-w-5xl h-full max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-6 px-2 text-white shrink-0">
+                            <div>
+                                <h3 className="font-bold text-2xl capitalize tracking-tight">{selectedItem.fullDate}</h3>
+                                <p className="text-white/60 text-base font-medium mt-1">
+                                    Peso: <strong className="text-white">{selectedItem.weight}kg</strong> • Grasa: <strong className="text-white">{selectedItem.fat}%</strong>
+                                </p>
+                            </div>
+                            <button onClick={() => setSelectedItem(null)} className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-colors backdrop-blur-sm">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto min-h-0">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 pb-8 h-full">
+                                {['front', 'side', 'back'].map((view) => (
+                                    selectedItem.photos[view] && (
+                                        <div key={view} className="flex flex-col h-full">
+                                            <div className="flex-1 relative rounded-3xl overflow-hidden bg-slate-900 border border-white/10 shadow-2xl">
+                                                <img src={selectedItem.photos[view]} alt={view} className="absolute inset-0 w-full h-full object-contain" />
+                                                <div className="absolute top-4 left-0 w-full text-center pointer-events-none">
+                                                    <span className="inline-block px-3 py-1 rounded-full bg-black/50 backdrop-blur-sm text-xs font-bold text-white uppercase tracking-widest border border-white/10">
+                                                        {view === 'front' ? 'Frente' : view === 'side' ? 'Perfil' : 'Espalda'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Comparison Modal */}
+            {showCompareModal && sortedCompareItems.length === 2 && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-2 bg-black/95 backdrop-blur-md animate-in zoom-in-95 duration-200" onClick={() => setShowCompareModal(false)}>
+                    <div className="w-full max-w-6xl h-full max-h-[95vh] flex flex-col bg-slate-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10" onClick={e => e.stopPropagation()}>
+
+                        {/* Header Responsive */}
+                        <div className="p-4 border-b border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 bg-black/20 shrink-0">
+                            <div className="flex items-center justify-between w-full md:w-auto gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-indigo-500 rounded-lg text-white">
+                                        <ArrowRightLeft size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-white text-lg leading-tight">Comparativa</h3>
+                                        <p className="text-white/40 text-xs font-bold uppercase tracking-wider">Antes vs Después</p>
+                                    </div>
+                                </div>
+                                {/* Mobile Close Button */}
+                                <button onClick={() => setShowCompareModal(false)} className="md:hidden p-2 bg-white/10 rounded-full text-white/60 hover:text-white hover:bg-white/20 transition-colors">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            {/* Controls Wrapper */}
+                            <div className="flex flex-wrap items-center justify-center gap-3 w-full md:w-auto">
+                                {/* View Switcher */}
+                                <div className="bg-white/5 rounded-xl p-1 flex gap-1">
+                                    {['front', 'side', 'back'].map((v) => (
+                                        <button
+                                            key={v}
+                                            onClick={() => setCompareView(v)}
+                                            className={clsx(
+                                                "px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider transition-all",
+                                                compareView === v ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-white hover:bg-white/5"
+                                            )}
+                                        >
+                                            {{ front: 'Frente', side: 'Perfil', back: 'Espalda' }[v]}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Download Button */}
+                                <button
+                                    onClick={handleDownloadComparison}
+                                    className="px-3 py-1.5 md:px-4 md:py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-[10px] md:text-xs flex items-center gap-2 shadow-lg transition-transform active:scale-95"
+                                    title="Guardar Comparativa"
+                                >
+                                    <Download size={16} />
+                                    <span className="hidden md:inline">Guardar</span>
+                                </button>
+
+                                {/* Desktop Close Button */}
+                                <button onClick={() => setShowCompareModal(false)} className="hidden md:block p-2 bg-white/10 rounded-full text-white/60 hover:text-white hover:bg-white/20 transition-colors">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Comparison Area to Capture */}
+                        <div ref={comparisonRef} className="flex-1 flex min-h-0 relative bg-slate-900 border-t border-white/5">
+                            {sortedCompareItems.map((item, idx) => (
+                                <div key={item.id} className={clsx("flex-1 relative flex flex-col", idx === 0 ? "border-r border-white/10" : "")}>
+                                    {/* Data Label */}
+                                    <div className="absolute top-4 left-0 w-full z-10 flex flex-col items-center pointer-events-none">
+                                        <span className={clsx(
+                                            "px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10 text-sm font-black uppercase tracking-tight shadow-xl mb-2",
+                                            idx === 0 ? "bg-slate-800/80 text-slate-400" : "bg-indigo-600/90 text-white"
+                                        )}>
+                                            {idx === 0 ? 'Antes' : 'Después'}
+                                        </span>
+                                        <div className="bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/5 text-center">
+                                            <p className="text-white font-bold text-sm">{item.date}</p>
+                                            <p className="text-white/60 text-xs">{item.weight}kg • {item.fat}%</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Image */}
+                                    <div className="flex-1 relative w-full h-full bg-black/40 flex items-center justify-center overflow-hidden">
+                                        {item.photos[compareView] ? (
+                                            <img
+                                                src={item.photos[compareView]}
+                                                alt="Compare"
+                                                className="max-w-full max-h-full object-contain w-auto h-auto relative"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex flex-col items-center justify-center text-white/20 gap-2">
+                                                <Camera size={48} />
+                                                <p className="font-bold text-sm uppercase">Sin Foto</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 // Collapsible Chart Component
 const ChartGroup = ({ title, children, icon: Icon, iconBg, iconColor, defaultOpen = false }) => {
     const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -218,6 +539,7 @@ const ChartGroup = ({ title, children, icon: Icon, iconBg, iconColor, defaultOpe
 // Collapsible Group Component
 const HistoryGroup = ({ label, items }) => {
     const [isOpen, setIsOpen] = useState(label === 'Hoy'); // Default open only 'Hoy'
+    const [selectedPhotos, setSelectedPhotos] = useState(null);
 
     return (
         <div className="space-y-3">
@@ -231,139 +553,188 @@ const HistoryGroup = ({ label, items }) => {
 
             {isOpen && (
                 <div className="animate-in slide-in-from-top-2 space-y-3">
-                    {items.map((item) => (
-                        <div key={item.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center transition-transform active:scale-[0.99]">
-                            <div>
-                                <p className="font-bold text-slate-800 capitalize">
-                                    {item.test === 'composition' ? 'Composición Corporal' :
-                                        item.test === 'ruffier' ? 'Test de Ruffier' :
-                                            item.test === 'squat' ? 'Sentadillas' :
-                                                item.test === 'pushup' ? 'Flexiones' :
-                                                    item.test === 'plank' ? 'Plancha' :
-                                                        item.test === 'tapping' ? 'Plate Tapping' :
-                                                            item.test === 'hops' ? 'Saltos Laterales' :
-                                                                item.test === 'blindStork' ? 'Test de Cigüeña' :
-                                                                    item.test === 'burpee' ? 'Burpees' :
-                                                                        item.test === 'step' ? 'Test del Escalón' :
-                                                                            item.test}
-                                </p>
-                                <p className="text-xs text-slate-400">
-                                    {new Date(item.timestamp.seconds * 1000).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                                </p>
-                            </div>
-                            <div className="flex flex-col items-end">
-                                {(() => {
-                                    const formatResult = (item) => {
-                                        // Composition
-                                        if (item.test === 'composition') {
-                                            return {
-                                                primary: `${item.data.weight} kg`,
-                                                secondary: `Grasa ${item.data.bodyFat}% | IMC ${item.data.bmi}`,
-                                                accent: 'teal'
-                                            };
-                                        }
-                                        // Ruffier
-                                        if (item.test === 'ruffier') {
-                                            return {
-                                                primary: `Ind. ${item.data.score}`,
-                                                secondary: item.data.label || (item.data.score < 5 ? 'Excelente' : item.data.score < 10 ? 'Bueno' : 'Mejorable'),
-                                                accent: 'yellow'
-                                            };
-                                        }
-                                        // Strength (Squat, Pushup, Burpee)
-                                        if (['squat', 'pushup', 'burpee'].includes(item.test)) {
-                                            const val = item.data.reps || item.data.value;
-                                            let quality = 'Completado';
-                                            if (val > 40) quality = 'Excelente';
-                                            else if (val > 25) quality = 'Bueno';
-                                            else quality = 'Inicial';
-                                            return {
-                                                primary: `${val} reps`,
-                                                secondary: quality,
-                                                accent: item.test === 'burpee' ? 'yellow' : 'purple'
-                                            };
-                                        }
-                                        // Plank / Stork / Step
-                                        if (['plank', 'blindStork', 'step', 'rockport', 'cooper'].includes(item.test)) {
-                                            if (item.test === 'rockport' || item.test === 'cooper') {
-                                                const unit = item.test === 'cooper' ? 'm' : 'min';
-                                                const val = item.test === 'cooper' ? item.data.distance : item.data.time;
+                    {items.map((item) => {
+                        const hasPhotos = item.test === 'composition' && (item.data.photos?.front || item.data.photos?.side || item.data.photos?.back);
+
+                        return (
+                            <div key={item.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center transition-transform active:scale-[0.99]">
+                                <div className="flex items-center gap-3">
+                                    {/* Photo Trigger */}
+                                    {hasPhotos && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setSelectedPhotos(item.data.photos); }}
+                                            className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0 hover:bg-teal-100 transition-colors"
+                                        >
+                                            <Camera size={18} />
+                                        </button>
+                                    )}
+                                    <div>
+                                        <p className="font-bold text-slate-800 capitalize">
+                                            {item.test === 'composition' ? 'Composición Corporal' :
+                                                item.test === 'ruffier' ? 'Test de Ruffier' :
+                                                    item.test === 'squat' ? 'Sentadillas' :
+                                                        item.test === 'pushup' ? 'Flexiones' :
+                                                            item.test === 'plank' ? 'Plancha' :
+                                                                item.test === 'tapping' ? 'Plate Tapping' :
+                                                                    item.test === 'hops' ? 'Saltos Laterales' :
+                                                                        item.test === 'blindStork' ? 'Test de Cigüeña' :
+                                                                            item.test === 'burpee' ? 'Burpees' :
+                                                                                item.test === 'step' ? 'Test del Escalón' :
+                                                                                    item.test}
+                                        </p>
+                                        <p className="text-xs text-slate-400">
+                                            {new Date(item.timestamp.seconds * 1000).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col items-end">
+                                    {(() => {
+                                        const formatResult = (item) => {
+                                            // Composition
+                                            if (item.test === 'composition') {
                                                 return {
-                                                    primary: `VO2 ${item.data.vo2}`,
-                                                    secondary: `${val} ${unit}`,
-                                                    accent: 'orange'
+                                                    primary: `${item.data.weight} kg`,
+                                                    secondary: `Grasa ${item.data.bodyFat}% | IMC ${item.data.bmi}`,
+                                                    accent: 'teal'
                                                 };
                                             }
-                                            if (item.test === 'step') {
+                                            // Ruffier
+                                            if (item.test === 'ruffier') {
                                                 return {
-                                                    primary: `VO2 ${item.data.vo2}`,
-                                                    secondary: `${item.data.hr} ppm`,
-                                                    accent: 'orange'
+                                                    primary: `Ind. ${item.data.score}`,
+                                                    secondary: item.data.label || (item.data.score < 5 ? 'Excelente' : item.data.score < 10 ? 'Bueno' : 'Mejorable'),
+                                                    accent: 'yellow'
                                                 };
                                             }
-                                            const time = item.data.time || item.data.value;
-                                            return {
-                                                primary: `${time}s`,
-                                                secondary: time > 60 ? 'Excelente' : time > 30 ? 'Bueno' : 'Inicial',
-                                                accent: item.test === 'plank' ? 'purple' : 'blue'
-                                            };
-                                        }
-                                        // Tapping / Hops
-                                        if (['tapping', 'hops'].includes(item.test)) {
-                                            if (item.test === 'hops') {
+                                            // Strength (Squat, Pushup, Burpee)
+                                            if (['squat', 'pushup', 'burpee'].includes(item.test)) {
+                                                const val = item.data.reps || item.data.value;
+                                                let quality = 'Completado';
+                                                if (val > 40) quality = 'Excelente';
+                                                else if (val > 25) quality = 'Bueno';
+                                                else quality = 'Inicial';
                                                 return {
-                                                    primary: `${item.data.count} saltos`,
-                                                    secondary: item.data.rating || 'Completado', // Ensure rating from test component is used or fallback
+                                                    primary: `${val} reps`,
+                                                    secondary: quality,
+                                                    accent: item.test === 'burpee' ? 'yellow' : 'purple'
+                                                };
+                                            }
+                                            // Plank / Stork / Step
+                                            if (['plank', 'blindStork', 'step', 'rockport', 'cooper'].includes(item.test)) {
+                                                if (item.test === 'rockport' || item.test === 'cooper') {
+                                                    const unit = item.test === 'cooper' ? 'm' : 'min';
+                                                    const val = item.test === 'cooper' ? item.data.distance : item.data.time;
+                                                    return {
+                                                        primary: `VO2 ${item.data.vo2}`,
+                                                        secondary: `${val} ${unit}`,
+                                                        accent: 'orange'
+                                                    };
+                                                }
+                                                if (item.test === 'step') {
+                                                    return {
+                                                        primary: `VO2 ${item.data.vo2}`,
+                                                        secondary: `${item.data.hr} ppm`,
+                                                        accent: 'orange'
+                                                    };
+                                                }
+                                                const time = item.data.time || item.data.value;
+                                                return {
+                                                    primary: `${time}s`,
+                                                    secondary: time > 60 ? 'Excelente' : time > 30 ? 'Bueno' : 'Inicial',
+                                                    accent: item.test === 'plank' ? 'purple' : 'blue'
+                                                };
+                                            }
+                                            // Tapping / Hops
+                                            if (['tapping', 'hops'].includes(item.test)) {
+                                                if (item.test === 'hops') {
+                                                    return {
+                                                        primary: `${item.data.count} saltos`,
+                                                        secondary: item.data.rating || 'Completado', // Ensure rating from test component is used or fallback
+                                                        accent: 'blue'
+                                                    };
+                                                }
+                                                return {
+                                                    primary: `${item.data.asymmetry}% Asim.`,
+                                                    secondary: item.data.score || (item.data.asymmetry < 5 ? 'Excelente' : 'Revisar'),
                                                     accent: 'blue'
                                                 };
                                             }
-                                            return {
-                                                primary: `${item.data.asymmetry}% Asim.`,
-                                                secondary: item.data.score || (item.data.asymmetry < 5 ? 'Excelente' : 'Revisar'),
-                                                accent: 'blue'
-                                            };
-                                        }
-                                        // Shoulder
-                                        if (item.test === 'shoulder') {
-                                            return {
-                                                primary: `${item.data.score} pts`,
-                                                secondary: item.data.asymmetry ? 'Asimetría' : 'Simétrico',
-                                                accent: 'emerald'
-                                            };
-                                        }
+                                            // Shoulder
+                                            if (item.test === 'shoulder') {
+                                                return {
+                                                    primary: `${item.data.score} pts`,
+                                                    secondary: item.data.asymmetry ? 'Asimetría' : 'Simétrico',
+                                                    accent: 'emerald'
+                                                };
+                                            }
 
-                                        // Fallback
-                                        return {
-                                            primary: item.data.value || item.data.reps || item.data.score || '-',
-                                            secondary: item.data.unit || 'Resultado',
-                                            accent: 'slate'
+                                            // Fallback
+                                            return {
+                                                primary: item.data.value || item.data.reps || item.data.score || '-',
+                                                secondary: item.data.unit || 'Resultado',
+                                                accent: 'slate'
+                                            };
                                         };
-                                    };
 
-                                    const info = formatResult(item);
-                                    const colorMap = {
-                                        teal: 'text-teal-600',
-                                        yellow: 'text-yellow-600',
-                                        purple: 'text-purple-600',
-                                        blue: 'text-blue-600',
-                                        emerald: 'text-emerald-600',
-                                        slate: 'text-slate-600'
-                                    };
+                                        const info = formatResult(item);
+                                        const colorMap = {
+                                            teal: 'text-teal-600',
+                                            yellow: 'text-yellow-600',
+                                            purple: 'text-purple-600',
+                                            blue: 'text-blue-600',
+                                            emerald: 'text-emerald-600',
+                                            slate: 'text-slate-600'
+                                        };
 
-                                    return (
-                                        <>
-                                            <span className={`font-black text-lg ${colorMap[info.accent]}`}>
-                                                {info.primary}
-                                            </span>
-                                            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">
-                                                {info.secondary}
-                                            </span>
-                                        </>
-                                    );
-                                })()}
+                                        return (
+                                            <>
+                                                <span className={`font-black text-lg ${colorMap[info.accent]}`}>
+                                                    {info.primary}
+                                                </span>
+                                                <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+                                                    {info.secondary}
+                                                </span>
+                                            </>
+                                        );
+                                    })()}
+                                </div>
                             </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* Photos Modal */}
+            {selectedPhotos && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto relative">
+                        <div className="sticky top-0 bg-white/90 backdrop-blur-md p-4 border-b border-slate-100 flex justify-between items-center z-10">
+                            <h3 className="font-bold text-slate-900 text-lg">Fotos del Historial</h3>
+                            <button onClick={() => setSelectedPhotos(null)} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200">
+                                <X size={20} />
+                            </button>
                         </div>
-                    ))}
+                        <div className="p-4 space-y-6">
+                            {selectedPhotos.front && (
+                                <div className="space-y-2">
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Frente</p>
+                                    <img src={selectedPhotos.front} alt="Frente" className="w-full rounded-2xl border border-slate-100 shadow-sm" />
+                                </div>
+                            )}
+                            {selectedPhotos.side && (
+                                <div className="space-y-2">
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Perfil</p>
+                                    <img src={selectedPhotos.side} alt="Perfil" className="w-full rounded-2xl border border-slate-100 shadow-sm" />
+                                </div>
+                            )}
+                            {selectedPhotos.back && (
+                                <div className="space-y-2">
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Espalda</p>
+                                    <img src={selectedPhotos.back} alt="Espalda" className="w-full rounded-2xl border border-slate-100 shadow-sm" />
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

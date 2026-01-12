@@ -6,7 +6,7 @@ import {
     Trophy, Share2, Activity, Info,
     Zap, Dumbbell, Shuffle, Orbit, PersonStanding, Settings, Trash2,
     MessageCircle, Globe, ChevronDown, ExternalLink, History,
-    ArrowDown, ArrowUp, Clock, Flame, Heart, Wind, Target, ArrowUpCircle, Anchor, RotateCw, Maximize2
+    ArrowDown, ArrowUp, Clock, Flame, Heart, Wind, Target, ArrowUpCircle, Anchor, RotateCw, Maximize2, Camera, X
 } from 'lucide-react';
 import RadarChart from '../common/RadarChart';
 import clsx from 'clsx';
@@ -320,7 +320,10 @@ const ResultsDashboard = () => {
 // Specialized Body Composition Card with Detailed Toggleable Info
 const BodyCompositionCard = ({ results }) => {
     const [showDetails, setShowDetails] = React.useState(false);
+    const [showPhotos, setShowPhotos] = React.useState(false);
     const hasData = results.composition?.bmi;
+    const photos = results.composition?.photos || {};
+    const hasPhotos = photos.front || photos.side || photos.back;
 
     return (
         <div className="col-span-2 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative overflow-hidden transition-all">
@@ -337,12 +340,22 @@ const BodyCompositionCard = ({ results }) => {
                     </div>
                 </div>
                 {hasData && (
-                    <button
-                        onClick={() => setShowDetails(!showDetails)}
-                        className={`p-2 rounded-full transition-colors ${showDetails ? 'bg-teal-50 text-teal-600' : 'text-slate-300 hover:text-slate-500'}`}
-                    >
-                        <Info size={20} />
-                    </button>
+                    <div className="flex gap-2">
+                        {hasPhotos && (
+                            <button
+                                onClick={() => setShowPhotos(true)}
+                                className="p-2 rounded-full bg-teal-50 text-teal-600 transition-colors hover:bg-teal-100"
+                            >
+                                <Camera size={20} />
+                            </button>
+                        )}
+                        <button
+                            onClick={() => setShowDetails(!showDetails)}
+                            className={`p-2 rounded-full transition-colors ${showDetails ? 'bg-slate-100 text-slate-600' : 'text-slate-300 hover:text-slate-500'}`}
+                        >
+                            <Info size={20} />
+                        </button>
+                    </div>
                 )}
             </div>
 
@@ -380,7 +393,6 @@ const BodyCompositionCard = ({ results }) => {
                     {showDetails && (
                         <div className="animate-in slide-in-from-top-2 fade-in duration-300 bg-slate-50 rounded-2xl p-4 space-y-4 border border-slate-100 mt-2">
                             <h5 className="font-bold text-slate-700 text-xs uppercase tracking-wider border-b border-slate-200 pb-2">Guía de Métricas</h5>
-
                             <dl className="space-y-3 text-xs leading-relaxed text-slate-600">
                                 <div>
                                     <dt className="font-black text-teal-700">Porcentaje de Grasa</dt>
@@ -406,6 +418,40 @@ const BodyCompositionCard = ({ results }) => {
                 <div className="py-8 text-center">
                     <span className="text-2xl font-black block leading-none text-slate-200 mb-2">—</span>
                     <span className="text-xs text-slate-300 font-bold">Sin datos registrados</span>
+                </div>
+            )}
+
+            {/* Photos Modal */}
+            {showPhotos && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto relative">
+                        <div className="sticky top-0 bg-white/90 backdrop-blur-md p-4 border-b border-slate-100 flex justify-between items-center z-10">
+                            <h3 className="font-bold text-slate-900 text-lg">Mis Fotos</h3>
+                            <button onClick={() => setShowPhotos(false)} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-4 space-y-6">
+                            {photos.front && (
+                                <div className="space-y-2">
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Frente</p>
+                                    <img src={photos.front} alt="Frente" className="w-full rounded-2xl border border-slate-100 shadow-sm" />
+                                </div>
+                            )}
+                            {photos.side && (
+                                <div className="space-y-2">
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Perfil</p>
+                                    <img src={photos.side} alt="Perfil" className="w-full rounded-2xl border border-slate-100 shadow-sm" />
+                                </div>
+                            )}
+                            {photos.back && (
+                                <div className="space-y-2">
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Espalda</p>
+                                    <img src={photos.back} alt="Espalda" className="w-full rounded-2xl border border-slate-100 shadow-sm" />
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
