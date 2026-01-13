@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Home, User, Zap, Dumbbell, Shuffle, Orbit, Activity, X, PersonStanding } from 'lucide-react';
 import clsx from 'clsx';
+import InstallPWA from '../common/InstallPWA';
 
 const MobileLayout = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -148,6 +149,7 @@ const MobileLayout = () => {
                     </div>
                 </div>
             </nav>
+            <InstallPWA />
         </div>
     );
 };
