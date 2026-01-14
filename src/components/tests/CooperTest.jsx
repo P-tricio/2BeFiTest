@@ -6,6 +6,12 @@ import { Trophy, Wind, Save, CheckCircle, Info, PersonStanding, MapPin, Footprin
 const CooperTest = () => {
     const navigate = useNavigate();
     const setTestResult = useStore((state) => state.setTestResult);
+    const setHeaderTitle = useStore((state) => state.setHeaderTitle);
+
+    useEffect(() => {
+        setHeaderTitle('Test de Cooper');
+        return () => setHeaderTitle('');
+    }, []);
 
     // Stages: 'intro', 'input'
     const [stage, setStage] = useState('intro');
@@ -49,7 +55,6 @@ const CooperTest = () => {
                         </div>
                     </div>
 
-                    <h2 className="text-2xl font-black text-slate-900 mb-2">Test de Cooper</h2>
                     <p className="text-sm text-slate-500 font-medium uppercase tracking-wider mb-6">Resistencia Aeróbica Avanzada</p>
 
                     {/* Disclaimer */}

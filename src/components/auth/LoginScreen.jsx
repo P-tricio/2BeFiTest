@@ -3,6 +3,7 @@ import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfi
 import { auth, googleProvider } from '../../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Loader2 } from 'lucide-react';
+import useStore from '../../store/useStore';
 
 const LoginScreen = () => {
     const [isLogin, setIsLogin] = useState(true);
@@ -13,20 +14,25 @@ const LoginScreen = () => {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
+    const setAuthUser = useStore((state) => state.setAuthUser);
+
     const handleAuth = async (e) => {
         e.preventDefault();
         setError(null);
         setLoading(true);
 
         try {
+            let userCredential;
             if (isLogin) {
-                await signInWithEmailAndPassword(auth, email, password);
+                userCredential = await signInWithEmailAndPassword(auth, email, password);
             } else {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 if (name) {
                     await updateProfile(userCredential.user, { displayName: name });
                 }
             }
+            // Explicitly update store to avoid race condition with RequireAuth
+            setAuthUser(userCredential.user);
             navigate('/');
         } catch (err) {
             console.error(err);
@@ -44,7 +50,8 @@ const LoginScreen = () => {
         setError(null);
         setLoading(true);
         try {
-            await signInWithPopup(auth, googleProvider);
+            const result = await signInWithPopup(auth, googleProvider);
+            setAuthUser(result.user);
             navigate('/');
         } catch (err) {
             console.error(err);
@@ -81,7 +88,7 @@ const LoginScreen = () => {
                                 type="text"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all border border-transparent focus:bg-white"
+                                className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 transition-all border border-transparent focus:bg-white"
                                 placeholder="Tu nombre"
                                 required={!isLogin}
                             />
@@ -94,7 +101,7 @@ const LoginScreen = () => {
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all border border-transparent focus:bg-white"
+                            className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 transition-all border border-transparent focus:bg-white"
                             placeholder="ejemplo@email.com"
                             required
                         />
@@ -106,7 +113,7 @@ const LoginScreen = () => {
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all border border-transparent focus:bg-white"
+                            className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 transition-all border border-transparent focus:bg-white"
                             placeholder="••••••••"
                             required
                             minLength={6}

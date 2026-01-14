@@ -8,12 +8,18 @@ const BurpeeTest = () => {
     const navigate = useNavigate();
     const setTestResult = useStore((state) => state.setTestResult);
     const user = useStore((state) => state.user);
+    const setHeaderTitle = useStore((state) => state.setHeaderTitle);
 
     // Level Logic
     const isAdapted = user.level === 'adapted';
     // 'general' level should also use the 90s duration (mapped to intermediate logic)
     const isIntermediate = user.level === 'intermediate' || user.level === 'general';
     const DURATION = isIntermediate ? 90 : 180;
+
+    useEffect(() => {
+        setHeaderTitle('Test de Burpees');
+        return () => setHeaderTitle('');
+    }, []);
 
     // Stages: 'intro', 'ready', 'countdown', 'testing', 'input'
     const [stage, setStage] = useState('intro');
@@ -106,7 +112,6 @@ const BurpeeTest = () => {
                         </div>
                     </div>
 
-                    <h2 className="text-2xl font-black text-slate-900 mb-2">Test de Burpees</h2>
                     <p className="text-sm text-slate-500 font-medium uppercase tracking-wider mb-6">Resistencia de Alta Intensidad</p>
 
                     <div className="w-full bg-slate-50 p-5 rounded-2xl text-left border border-slate-100 mb-2">

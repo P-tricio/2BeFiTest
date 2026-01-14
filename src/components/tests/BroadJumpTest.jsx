@@ -8,6 +8,12 @@ const BroadJumpTest = () => {
     const setTestResult = useStore((state) => state.setTestResult);
     const user = useStore((state) => state.user);
     const setUser = useStore((state) => state.setUser);
+    const setHeaderTitle = useStore((state) => state.setHeaderTitle);
+
+    useEffect(() => {
+        setHeaderTitle('Salto Horizontal');
+        return () => setHeaderTitle('');
+    }, []);
 
     const [stage, setStage] = useState('intro'); // intro, height_input, jump_input, result
     const [height, setHeight] = useState(user.height || ''); // cm
@@ -35,7 +41,7 @@ const BroadJumpTest = () => {
                     <div className="bg-yellow-100 p-4 rounded-full text-yellow-600 mb-4">
                         <Zap className="w-10 h-10" />
                     </div>
-                    <h2 className="text-2xl font-black text-slate-900 mb-2">Salto Horizontal</h2>
+
                     <p className="text-sm text-slate-500 font-medium uppercase tracking-wider mb-6">Potencia de Piernas</p>
 
                     <div className="w-full bg-slate-50 p-5 rounded-2xl text-left border border-slate-100 mb-2">

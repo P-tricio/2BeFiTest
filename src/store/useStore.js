@@ -41,6 +41,9 @@ const useStore = create(
                     });
                 }
             },
+            headerTitle: '',
+            setHeaderTitle: (title) => set({ headerTitle: title }),
+
             setLevel: (level) => set((state) => ({ user: { ...state.user, level } })),
 
             // Safety / Onboarding

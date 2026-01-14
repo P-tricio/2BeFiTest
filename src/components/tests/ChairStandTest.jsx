@@ -7,6 +7,12 @@ import VisualMetronome from '../common/VisualMetronome';
 const ChairStandTest = () => {
     const navigate = useNavigate();
     const setTestResult = useStore((state) => state.setTestResult);
+    const setHeaderTitle = useStore((state) => state.setHeaderTitle);
+
+    useEffect(() => {
+        setHeaderTitle('Sentadilla en Silla');
+        return () => setHeaderTitle('');
+    }, []);
 
     const [stage, setStage] = useState('intro'); // intro, ready, countdown, testing, input
     const [timeLeft, setTimeLeft] = useState(30);
@@ -57,7 +63,7 @@ const ChairStandTest = () => {
                     <div className="bg-green-100 p-4 rounded-full text-green-600 mb-4">
                         <ArrowDown className="w-10 h-10" />
                     </div>
-                    <h2 className="text-2xl font-black text-slate-900 mb-2">Sentadilla en Silla</h2>
+
                     <p className="text-sm text-slate-500 font-medium uppercase tracking-wider mb-6">Fuerza Adaptada</p>
 
                     <div className="w-full bg-slate-50 p-5 rounded-2xl text-left border border-slate-100 mb-2">

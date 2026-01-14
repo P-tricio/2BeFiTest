@@ -8,10 +8,16 @@ const SideHopTest = () => {
     const navigate = useNavigate();
     const setTestResult = useStore((state) => state.setTestResult);
     const user = useStore((state) => state.user);
+    const setHeaderTitle = useStore((state) => state.setHeaderTitle);
 
     const isAdapted = user.level === 'adapted';
     const TEST_NAME = isAdapted ? 'Pasos Laterales' : 'Saltos Laterales';
     const ACTION_VERB = isAdapted ? 'desplaza' : 'salta';
+
+    useEffect(() => {
+        setHeaderTitle(TEST_NAME);
+        return () => setHeaderTitle('');
+    }, [TEST_NAME]);
 
     // Stages: 'intro', 'ready', 'countdown', 'testing', 'completed'
     const [stage, setStage] = useState('intro');
@@ -90,26 +96,25 @@ const SideHopTest = () => {
                             alt="Demonstración de Saltos Laterales"
                             className="w-full h-full object-contain p-4 mix-blend-multiply"
                         />
-                        <div className="absolute top-2 right-2 bg-indigo-100 text-indigo-600 p-2 rounded-full">
+                        <div className="absolute top-2 right-2 bg-purple-100 text-purple-600 p-2 rounded-full">
                             <ArrowUpCircle size={20} />
                         </div>
                     </div>
 
-                    <h2 className="text-2xl font-black text-slate-900 mb-2">{TEST_NAME}</h2>
                     <p className="text-sm text-slate-500 font-medium uppercase tracking-wider mb-6">Test de Coordinación</p>
 
                     <div className="w-full bg-slate-50 p-5 rounded-2xl text-left border border-slate-100 mb-2">
                         <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-                            <CheckCircle size={16} className="text-indigo-500" /> Protocolo (30s)
+                            <CheckCircle size={16} className="text-purple-500" /> Protocolo (30s)
                         </h3>
-                        <ol className="list-decimal pl-5 space-y-3 text-slate-600 text-sm marker:text-indigo-500 marker:font-bold">
+                        <ol className="list-decimal pl-5 space-y-3 text-slate-600 text-sm marker:text-purple-500 marker:font-bold">
                             <li>Marca una línea en el suelo (cinta o referencia visual).</li>
                             <li>Ponte de pie con los pies juntos a un lado de la línea.</li>
                             <li>{isAdapted ? 'Desplázate' : 'Salta'} de lado a lado sobre la línea lo más rápido posible.</li>
                             <li>Cada toque de suelo cuenta como 1 repetición.</li>
                         </ol>
                         {!isAdapted && (
-                            <div className="mt-4 p-3 bg-blue-50 text-blue-700 text-xs rounded-xl font-medium border border-blue-100">
+                            <div className="mt-4 p-3 bg-purple-50 text-purple-700 text-xs rounded-xl font-medium border border-purple-100">
                                 💡 Si no puedes saltar, realiza un paso lateral rápido (uno y otro pie) sobre la línea.
                             </div>
                         )}
@@ -135,7 +140,7 @@ const SideHopTest = () => {
                 </div>
 
                 <div className="card-base p-8 w-full max-w-xs text-center space-y-4">
-                    <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto text-indigo-600 animate-pulse">
+                    <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto text-purple-600 animate-pulse">
                         <Timer size={32} />
                     </div>
                     <p className="text-slate-700 font-medium leading-relaxed">
@@ -145,7 +150,7 @@ const SideHopTest = () => {
 
                 <button
                     onClick={handleStartSequence}
-                    className="btn-primary w-full max-w-xs py-5 shadow-2xl shadow-indigo-500/30 flex items-center justify-center gap-3"
+                    className="btn-primary w-full max-w-xs py-5 shadow-2xl shadow-purple-500/30 flex items-center justify-center gap-3"
                 >
                     <Play size={24} fill="currentColor" />
                     EMPEZAR TEST
@@ -157,7 +162,7 @@ const SideHopTest = () => {
     if (stage === 'countdown') {
         return (
             <div className="flex flex-col h-full items-center justify-center bg-slate-900 text-white">
-                <div className="text-[180px] font-black leading-none animate-bounce text-transparent bg-clip-text bg-gradient-to-br from-indigo-400 to-purple-600">
+                <div className="text-[180px] font-black leading-none animate-bounce text-transparent bg-clip-text bg-gradient-to-br from-purple-400 to-indigo-600">
                     {countdown}
                 </div>
                 <p className="text-slate-400 font-bold tracking-[0.5em] mt-8">LISTO...</p>
@@ -170,7 +175,7 @@ const SideHopTest = () => {
             <div className="flex flex-col h-full bg-slate-900 select-none overflow-hidden items-center justify-center relative">
                 {/* Background Elements */}
                 <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-20 pointer-events-none">
-                    <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-indigo-600 rounded-full blur-[100px] animate-pulse"></div>
+                    <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-purple-600 rounded-full blur-[100px] animate-pulse"></div>
                 </div>
 
                 <div className="text-center relative z-10">

@@ -7,9 +7,15 @@ const SquatTest = () => {
     const navigate = useNavigate();
     const setTestResult = useStore((state) => state.setTestResult);
     const user = useStore((state) => state.user);
+    const setHeaderTitle = useStore((state) => state.setHeaderTitle);
 
     const isAdvanced = user.level === 'advanced';
     const TEST_NAME = isAdvanced ? 'Sentadillas con Salto' : 'Test de Sentadillas';
+
+    useEffect(() => {
+        setHeaderTitle(TEST_NAME);
+        return () => setHeaderTitle('');
+    }, [TEST_NAME]);
 
     // Stages: 'intro', 'ready', 'countdown', 'testing', 'input'
     const [stage, setStage] = useState('intro');
@@ -82,7 +88,6 @@ const SquatTest = () => {
                         </div>
                     </div>
 
-                    <h2 className="text-2xl font-black text-slate-900 mb-2">{TEST_NAME}</h2>
                     <p className="text-sm text-slate-500 font-medium uppercase tracking-wider mb-6">Fuerza Tren Inferior</p>
 
                     <div className="w-full bg-slate-50 p-5 rounded-2xl text-left border border-slate-100 mb-2">
@@ -174,14 +179,14 @@ const SquatTest = () => {
                     value={reps}
                     onChange={(e) => setReps(e.target.value)}
                     placeholder="0"
-                    className="w-full max-w-[200px] text-center text-6xl font-black p-4 rounded-2xl border-2 border-slate-200 outline-none focus:border-blue-500"
+                    className="w-full max-w-[200px] text-center text-6xl font-black p-4 rounded-2xl border-2 border-slate-200 outline-none focus:border-purple-500"
                     autoFocus
                 />
 
                 <button
                     onClick={handleSave}
                     disabled={!reps}
-                    className="w-full bg-blue-600 disabled:bg-slate-300 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2"
+                    className="w-full bg-purple-600 disabled:bg-slate-300 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2"
                 >
                     <Save size={20} /> Guardar Resultado
                 </button>

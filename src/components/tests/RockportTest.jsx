@@ -9,6 +9,12 @@ const RockportTest = () => {
     const setTestResult = useStore((state) => state.setTestResult);
     const user = useStore((state) => state.user);
     const setUser = useStore((state) => state.setUser);
+    const setHeaderTitle = useStore((state) => state.setHeaderTitle);
+
+    useEffect(() => {
+        setHeaderTitle('Test de Rockport');
+        return () => setHeaderTitle('');
+    }, []);
 
     // Stages: 'intro', 'input', 'result'
     const [stage, setStage] = useState('intro');
@@ -75,7 +81,6 @@ const RockportTest = () => {
                         </div>
                     </div>
 
-                    <h2 className="text-2xl font-black text-slate-900 mb-2">Test de Rockport</h2>
                     <p className="text-sm text-slate-500 font-medium uppercase tracking-wider mb-6">Capacidad Aeróbica (VO2 Max)</p>
 
                     {/* Disclaimer */}
@@ -94,7 +99,7 @@ const RockportTest = () => {
                         <ul className="list-disc pl-5 space-y-2 text-slate-600 text-sm marker:text-green-500 marker:font-bold">
                             <li>Camina <strong>1.6 km</strong> lo más rápido posible.</li>
                             <li>No corras, siempre un pie en el suelo.</li>
-                            <li>Al terminar, toma tu <strong>pulsación</strong> inmediatamente.</li>
+                            <li>Al terminar, toma tu <strong>pulso</strong> inmediatamente.</li>
                             <li>Anota tu tiempo total.</li>
                         </ul>
                     </div>

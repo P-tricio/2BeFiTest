@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../../store/useStore';
 import { Check, AlertCircle, XCircle, RotateCw } from 'lucide-react';
@@ -7,7 +7,13 @@ import clsx from 'clsx';
 const ShoulderMobility = () => {
     const navigate = useNavigate();
     const setTestResult = useStore((state) => state.setTestResult);
+    const setHeaderTitle = useStore((state) => state.setHeaderTitle);
     const [scores, setScores] = useState({ right: null, left: null });
+
+    useEffect(() => {
+        setHeaderTitle('Movilidad de Hombros');
+        return () => setHeaderTitle('');
+    }, []);
 
     const handleSelect = (side, value) => {
         setScores(prev => ({ ...prev, [side]: value }));
@@ -31,7 +37,7 @@ const ShoulderMobility = () => {
 
     const ScoreSelector = ({ side, value, onChange }) => (
         <div className="space-y-3">
-            <h3 className="font-bold text-slate-900 border-l-4 border-blue-500 pl-3">
+            <h3 className="font-bold text-slate-900 border-l-4 border-pink-500 pl-3">
                 {side === 'right' ? 'Brazo DERECHO Arriba' : 'Brazo IZQUIERDO Arriba'}
             </h3>
             <div className="grid grid-cols-1 gap-2">
@@ -84,12 +90,11 @@ const ShoulderMobility = () => {
                             alt="Demonstración de Movilidad de Hombros"
                             className="w-full h-full object-contain p-4 mix-blend-multiply"
                         />
-                        <div className="absolute top-2 right-2 bg-purple-100 text-purple-600 p-2 rounded-full">
+                        <div className="absolute top-2 right-2 bg-pink-100 text-pink-600 p-2 rounded-full">
                             <RotateCw size={20} />
                         </div>
                     </div>
 
-                    <h2 className="text-2xl font-black text-slate-900 mb-2">Movilidad de Hombros</h2>
                     <p className="text-sm text-slate-500 max-w-xs mx-auto">
                         Evalúa ambos lados. Un lado puede ser más flexible que el otro.
                     </p>

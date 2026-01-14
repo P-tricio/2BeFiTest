@@ -22,7 +22,7 @@ const LevelSelector = () => {
             title: 'General',
             desc: 'Población activa o sedentaria. Estándar.',
             icon: Activity,
-            color: 'blue'
+            color: 'emerald'
         },
         {
             id: 'advanced',
@@ -94,7 +94,7 @@ const LevelSelector = () => {
                 <button
                     onClick={handleContinue}
                     disabled={!selected}
-                    className="btn-primary w-full py-4 text-lg shadow-xl shadow-blue-500/20 flex items-center justify-center gap-2"
+                    className="btn-primary w-full py-4 text-lg shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2"
                 >
                     Confirmar Nivel <ChevronRight size={20} />
                 </button>

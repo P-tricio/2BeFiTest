@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../../store/useStore';
+import { calculateMetrics, calculateGlobalScore } from '../../utils/scoring';
 import { Activity, CheckCircle, AlertCircle, Play, Zap, Info, Trophy, Dumbbell, ArrowDown, Lightbulb, History } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -12,78 +13,25 @@ const Home = () => {
 
     const firstName = user?.name ? user.name.split(' ')[0] : 'Atleta';
 
-    // --- Improved Scoring Logic (Copied EXACTLY from ResultsDashboard to avoid discrepancies) ---
-    const totalScore = useMemo(() => {
-        // Normalization Helper
-        const normalize = (val, max) => Math.min(100, Math.max(0, (val / max) * 100));
-
-        // 1. Strength
-        let strengthRaw = 0, strengthMax = 0;
-        if (results.strength?.squat) { strengthRaw += Math.min(results.strength.squat.reps, 50); strengthMax += 50; }
-        if (results.strength?.pushup) { strengthRaw += Math.min(results.strength.pushup.reps, 40); strengthMax += 40; }
-        if (results.strength?.plank) { strengthRaw += Math.min(results.strength.plank.time, 120); strengthMax += 120; }
-        const strengthScore = strengthMax > 0 ? normalize(strengthRaw, strengthMax) : 0;
-
-        // 2. Cardio
-        let cardioScore = 0;
-        if (results.cardio?.vo2) cardioScore = normalize(results.cardio.vo2, 60);
-        else if (results.cardio?.ruffier) cardioScore = normalize(Math.max(0, 20 - results.cardio.ruffier.score), 20);
-        else if (results.cardio?.burpee) cardioScore = normalize(results.cardio.burpee.reps, 40);
-
-        // 3. Control
-        let coordRaw = 0, coordMax = 0;
-        if (results.agility?.tapping) {
-            coordRaw += Math.max(0, 100 - (results.agility.tapping.asymmetry * 2)); coordMax += 100;
-        }
-        if (results.agility?.hops) { coordRaw += results.agility.hops.count; coordMax += 50; }
-        if (results.agility?.blindStork) { coordRaw += results.agility.blindStork.time; coordMax += 60; }
-        const coordScore = coordMax > 0 ? normalize(coordRaw, coordMax) : 0;
-
-        // 4. Mobility
-        let mobRaw = 0, mobMax = 0;
-        if (results.mobility?.shoulder) { mobRaw += results.mobility.shoulder.score; mobMax += 6; }
-        if (results.mobility?.overheadSquat) { mobRaw += results.mobility.overheadSquat.score; mobMax += 3; }
-        const mobScore = mobMax > 0 ? normalize(mobRaw, mobMax) : 0;
-
-        // 5. Composition
-        let compScore = 0;
-        if (results.composition?.bmi) {
-            let pts = 50;
-            const bmi = parseFloat(results.composition.bmi);
-            if (bmi > 25) pts -= (bmi - 25) * 2;
-            if (bmi < 18.5) pts -= (18.5 - bmi) * 2;
-            // Bonus for ICA if present
-            if (results.composition.ica) {
-                const ica = parseFloat(results.composition.ica);
-                if (ica <= 0.5) pts += 20;
-            }
-            compScore = Math.min(100, Math.max(0, pts));
-        }
-
-        // Calculate Average of existing categories
-        let totalSum = 0;
-        let categories = 0;
-        if (strengthMax > 0) { totalSum += strengthScore; categories++; }
-        if (cardioScore > 0) { totalSum += cardioScore; categories++; }
-        if (coordMax > 0) { totalSum += coordScore; categories++; }
-        if (mobMax > 0) { totalSum += mobScore; categories++; }
-        if (results.composition?.bmi) { totalSum += compScore; categories++; }
-
-        return categories > 0 ? Math.round(totalSum / categories) : 0;
-    }, [results]);
+    // --- Unified Scoring Logic ---
+    const { metrics, totalScore } = useMemo(() => {
+        const m = calculateMetrics(results, user.level);
+        const s = calculateGlobalScore(m);
+        return { metrics: m, totalScore: s };
+    }, [results, user.level]);
 
 
     const levelInfo = useMemo(() => {
-        if (totalScore >= 80) return { name: 'Atleta Élite', color: 'text-purple-600', bg: 'bg-purple-100', desc: '¡Rendimiento excepcional!' };
-        if (totalScore >= 50) return { name: 'En Forma', color: 'text-green-600', bg: 'bg-green-100', desc: 'Buen nivel físico general.' };
-        if (totalScore >= 20) return { name: 'Iniciado', color: 'text-blue-600', bg: 'bg-blue-100', desc: 'Empezando el camino.' };
+        if (totalScore >= 80) return { name: 'Atleta Élite', color: 'text-emerald-600', bg: 'bg-emerald-100', desc: '¡Rendimiento excepcional!' };
+        if (totalScore >= 50) return { name: 'En Forma', color: 'text-teal-600', bg: 'bg-teal-100', desc: 'Buen nivel físico general.' };
+        if (totalScore >= 20) return { name: 'Iniciado', color: 'text-green-600', bg: 'bg-green-100', desc: 'Empezando el camino.' };
         return { name: 'Principiante', color: 'text-slate-600', bg: 'bg-slate-100', desc: 'Primeros pasos.' };
     }, [totalScore]);
 
     // ... (keep existing mappings) ...
     const userLevelMap = {
-        'adapted': { title: 'Adaptado', color: 'bg-green-100 text-green-700 border-green-200' },
-        'general': { title: 'General', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+        'adapted': { title: 'Adaptado', color: 'bg-teal-100 text-teal-700 border-teal-200' },
+        'general': { title: 'General', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
         'advanced': { title: 'Avanzado', color: 'bg-red-100 text-red-700 border-red-200' }
     };
     const currentLevel = userLevelMap[user.level] || userLevelMap['general'];
@@ -93,34 +41,34 @@ const Home = () => {
     return (
         <div className="flex flex-col h-full relative bg-slate-50 overflow-hidden">
             {/* Decorative Background Elements */}
-            <div className="absolute top-[-15%] right-[-35%] w-[400px] h-[400px] bg-blue-200/20 rounded-full blur-[80px] pointer-events-none" />
-            <div className="absolute top-[20%] left-[-20%] w-[300px] h-[300px] bg-purple-200/20 rounded-full blur-[60px] pointer-events-none" />
+            <div className="absolute top-[-15%] right-[-35%] w-[400px] h-[400px] bg-emerald-200/20 rounded-full blur-[80px] pointer-events-none" />
+            <div className="absolute top-[20%] left-[-20%] w-[300px] h-[300px] bg-teal-200/20 rounded-full blur-[60px] pointer-events-none" />
 
             <div className="flex flex-col h-full overflow-y-auto pb-28 min-h-0 relative z-10 w-full max-w-md mx-auto">
                 {/* Header Section */}
-                <div className="px-6 pt-12 pb-6 shrink-0 z-10">
+                <div className="px-6 pt-24 pb-6 shrink-0 z-10">
                     <div className="flex justify-between items-start mb-2 animate-in slide-in-from-top-4 duration-700">
                         <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.2em] relative top-1">Bienvenido,</p>
                     </div>
                     <h1 className="text-[2.75rem] font-black text-slate-900 leading-none tracking-tight animate-in slide-in-from-left-4 duration-700 delay-100">
                         {firstName}
-                        <span className="text-blue-600">.</span>
+                        <span className="text-emerald-500">.</span>
                     </h1>
                 </div>
 
                 <div className="px-6 space-y-6 flex-1 flex flex-col pb-6">
                     {/* Status Card Logic */}
                     {!parq.completed ? (
-                        <div className="bg-gradient-to-br from-orange-500 to-pink-600 rounded-[2rem] p-8 text-white shadow-xl shadow-orange-500/20 relative overflow-hidden group cursor-pointer transition-transform active:scale-95 shrink-0" onClick={() => navigate('/onboarding')}>
+                        <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[2rem] p-8 text-white shadow-xl shadow-emerald-500/20 relative overflow-hidden group cursor-pointer transition-transform active:scale-95 shrink-0" onClick={() => navigate('/onboarding')}>
                             <div className="relative z-10">
                                 <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] font-black tracking-wider uppercase mb-5 border border-white/30">
                                     <AlertCircle size={10} strokeWidth={3} /> Requerido
                                 </div>
                                 <h2 className="text-3xl font-black mb-3 leading-none">Seguridad<br />Primero.</h2>
-                                <p className="text-orange-100 text-sm mb-6 leading-relaxed font-medium max-w-[200px]">
+                                <p className="text-emerald-50 text-sm mb-6 leading-relaxed font-medium max-w-[200px]">
                                     Verifiquemos que estás apto para actividad física intensa.
                                 </p>
-                                <button className="bg-white text-orange-600 px-6 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider hover:bg-orange-50 transition-colors flex items-center gap-2 shadow-lg shadow-orange-900/10">
+                                <button className="bg-white text-emerald-600 px-6 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider hover:bg-emerald-50 transition-colors flex items-center gap-2 shadow-lg shadow-emerald-900/10">
                                     Iniciar PAR-Q <Play size={14} fill="currentColor" />
                                 </button>
                             </div>
@@ -158,12 +106,12 @@ const Home = () => {
 
                                         {showInfo && (
                                             <div className="absolute inset-0 bg-white/95 backdrop-blur-md z-20 flex flex-col items-center justify-center text-center animate-in fade-in zoom-in-95 p-8" onClick={() => setShowInfo(false)}>
-                                                <Info size={40} className="text-blue-500 mb-4" />
+                                                <Info size={40} className="text-emerald-500 mb-4" />
                                                 <h4 className="font-black text-slate-900 text-xl mb-2">Estado de Forma</h4>
                                                 <p className="text-slate-500 font-medium leading-relaxed">
                                                     Puntuación global (0-100) basada en tus resultados de Fuerza, Cardio, Control y Movilidad.
                                                 </p>
-                                                <p className="text-[10px] text-blue-500 font-black mt-6 uppercase tracking-widest">Toca para cerrar</p>
+                                                <p className="text-[10px] text-emerald-500 font-black mt-6 uppercase tracking-widest">Toca para cerrar</p>
                                             </div>
                                         )}
 
@@ -178,7 +126,7 @@ const Home = () => {
                                                 </span>
                                             </div>
 
-                                            <div onClick={() => setShowInfo(true)} className="w-10 h-10 rounded-full bg-white border border-slate-100 shadow-sm flex items-center justify-center text-slate-300 hover:text-blue-500 cursor-pointer active:scale-90 transition-all">
+                                            <div onClick={() => setShowInfo(true)} className="w-10 h-10 rounded-full bg-white border border-slate-100 shadow-sm flex items-center justify-center text-slate-300 hover:text-emerald-500 cursor-pointer active:scale-90 transition-all">
                                                 <Info size={18} strokeWidth={2.5} />
                                             </div>
                                         </div>
@@ -202,15 +150,15 @@ const Home = () => {
                             )}
 
                             {/* Recommendation Card */}
-                            <div className="bg-blue-600 rounded-[2.5rem] p-8 text-white shadow-xl shadow-blue-500/25 relative overflow-hidden shrink-0 group">
+                            <div className="bg-emerald-500 rounded-[2.5rem] p-8 text-white shadow-xl shadow-emerald-500/25 relative overflow-hidden shrink-0 group">
                                 <div className="relative z-10">
                                     <div className="flex items-center gap-3 mb-5">
                                         <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm">
-                                            <Lightbulb size={20} className="text-blue-100" fill="currentColor" />
+                                            <Lightbulb size={20} className="text-emerald-100" fill="currentColor" />
                                         </div>
                                         <h3 className="font-black text-lg tracking-wide">Recomendación</h3>
                                     </div>
-                                    <p className="text-blue-50 text-[15px] font-medium leading-relaxed opacity-90">
+                                    <p className="text-emerald-50 text-[15px] font-medium leading-relaxed opacity-90">
                                         {(() => {
                                             // Priority 1: No data
                                             const hasData = results.cardio || results.strength?.squat || results.strength?.plank || results.agility?.tapping;
@@ -260,8 +208,8 @@ const Home = () => {
                                 </div>
 
                                 {/* Decorative Circles */}
-                                <div className="absolute -top-12 -right-12 w-48 h-48 bg-blue-500/30 rounded-full blur-3xl pointer-events-none group-hover:bg-blue-400/30 transition-colors duration-500"></div>
-                                <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none"></div>
+                                <div className="absolute -top-12 -right-12 w-48 h-48 bg-emerald-400/30 rounded-full blur-3xl pointer-events-none group-hover:bg-emerald-300/30 transition-colors duration-500"></div>
+                                <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-teal-400/20 rounded-full blur-2xl pointer-events-none"></div>
                             </div>
 
                             {/* History Navigation Button */}
@@ -270,15 +218,15 @@ const Home = () => {
                                 className="w-full bg-white p-6 rounded-[2.5rem] shadow-lg shadow-slate-200/50 border border-slate-100 flex items-center justify-between group active:scale-[0.98] transition-all"
                             >
                                 <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                                    <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
                                         <History size={24} />
                                     </div>
                                     <div className="text-left">
                                         <h3 className="font-bold text-slate-900 text-lg">Historial</h3>
-                                        <p className="text-slate-500 text-sm font-medium group-hover:text-blue-600 transition-colors">Ver evolución completa</p>
+                                        <p className="text-slate-500 text-sm font-medium group-hover:text-emerald-600 transition-colors">Ver evolución completa</p>
                                     </div>
                                 </div>
-                                <div className="w-10 h-10 rounded-full border border-slate-100 flex items-center justify-center text-slate-300 group-hover:border-blue-200 group-hover:text-blue-600 transition-all">
+                                <div className="w-10 h-10 rounded-full border border-slate-100 flex items-center justify-center text-slate-300 group-hover:border-emerald-200 group-hover:text-emerald-600 transition-all">
                                     <ArrowDown className="-rotate-90" size={20} />
                                 </div>
                             </button>

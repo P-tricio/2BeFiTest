@@ -73,14 +73,13 @@ const StrengthMenu = () => {
                         <span className={clsx(
                             "text-xs font-black uppercase tracking-wider",
                             level === 'adapted' ? "text-green-600" :
-                                level === 'advanced' ? "text-red-600" : "text-blue-600"
+                                level === 'advanced' ? "text-red-600" : "text-emerald-600"
                         )}>
                             {level || 'General'}
                         </span>
                     </div>
                 </div>
 
-                {/* Cards List */}
                 {/* Cards List */}
                 <div className="grid gap-6 w-full">
                     <button

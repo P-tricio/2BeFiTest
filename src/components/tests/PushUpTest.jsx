@@ -7,9 +7,15 @@ const PushUpTest = () => {
     const navigate = useNavigate();
     const setTestResult = useStore((state) => state.setTestResult);
     const user = useStore((state) => state.user);
+    const setHeaderTitle = useStore((state) => state.setHeaderTitle);
 
     const isAdapted = user.level === 'adapted';
     const TEST_NAME = isAdapted ? 'Flexiones en Pared' : 'Test de Flexiones';
+
+    useEffect(() => {
+        setHeaderTitle(TEST_NAME);
+        return () => setHeaderTitle('');
+    }, [TEST_NAME]);
 
     // Stages: 'intro', 'ready', 'countdown', 'testing', 'input'
     const [stage, setStage] = useState('intro');
@@ -70,7 +76,6 @@ const PushUpTest = () => {
                         </div>
                     </div>
 
-                    <h2 className="text-2xl font-black text-slate-900 mb-2">{TEST_NAME}</h2>
                     <p className="text-sm text-slate-500 font-medium uppercase tracking-wider mb-6">Fuerza Tren Superior</p>
 
                     <div className="w-full bg-slate-50 p-5 rounded-2xl text-left border border-slate-100 mb-2">

@@ -8,10 +8,16 @@ const BlindStorkTest = () => {
     const navigate = useNavigate();
     const setTestResult = useStore((state) => state.setTestResult);
     const user = useStore((state) => state.user);
+    const setHeaderTitle = useStore((state) => state.setHeaderTitle);
 
     // Level Check
     const isAdvanced = user.level === 'advanced';
     const eyesOpen = !isAdvanced;
+
+    useEffect(() => {
+        setHeaderTitle('Test de la Cigüeña');
+        return () => setHeaderTitle('');
+    }, []);
 
     // Stages: 'intro', 'ready', 'testing', 'input', 'rest', 'completed'
     const [stage, setStage] = useState('intro');
@@ -92,7 +98,6 @@ const BlindStorkTest = () => {
                         </div>
                     </div>
 
-                    <h2 className="text-2xl font-black text-slate-900 mb-2">Test de la Cigüeña</h2>
                     <p className="text-sm text-slate-500 font-medium uppercase tracking-wider mb-6">
                         Equilibrio {eyesOpen ? '(Ojos Abiertos)' : '(Ojos Cerrados)'}
                     </p>

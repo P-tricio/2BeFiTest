@@ -6,6 +6,12 @@ import { Play, Square, Save, Clock, CheckCircle, Timer } from 'lucide-react';
 const PlankTest = () => {
     const navigate = useNavigate();
     const setTestResult = useStore((state) => state.setTestResult);
+    const setHeaderTitle = useStore((state) => state.setHeaderTitle);
+
+    useEffect(() => {
+        setHeaderTitle('Test de Plancha');
+        return () => setHeaderTitle('');
+    }, []);
 
     // Stages: 'intro', 'ready', 'countdown', 'running', 'result'
     const [stage, setStage] = useState('intro');
@@ -76,7 +82,6 @@ const PlankTest = () => {
                         </div>
                     </div>
 
-                    <h2 className="text-2xl font-black text-slate-900 mb-2">Test de Plancha</h2>
                     <p className="text-sm text-slate-500 font-medium uppercase tracking-wider mb-6">Fuerza Core</p>
 
                     <div className="w-full bg-slate-50 p-5 rounded-2xl text-left border border-slate-100 mb-2">
@@ -124,7 +129,7 @@ const PlankTest = () => {
 
                 <button
                     onClick={() => { setCountdown(3); setStage('countdown'); }}
-                    className="btn-primary w-full max-w-xs py-5 shadow-2xl shadow-purple-500/30 flex items-center justify-center gap-3"
+                    className="w-full max-w-xs bg-purple-600 hover:bg-purple-700 text-white font-bold py-5 rounded-xl transition-all shadow-2xl shadow-purple-500/30 flex items-center justify-center gap-3"
                 >
                     <Play size={24} fill="currentColor" />
                     EMPEZAR TEST

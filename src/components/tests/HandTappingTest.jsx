@@ -7,10 +7,16 @@ import clsx from 'clsx';
 const HandTappingTest = () => {
     const navigate = useNavigate();
     const setTestResult = useStore((state) => state.setTestResult);
+    const setHeaderTitle = useStore((state) => state.setHeaderTitle);
 
     // Stages: 'intro', 'ready', 'countdown', 'testing', 'rest', 'completed'
     const [stage, setStage] = useState('intro');
     const [currentHand, setCurrentHand] = useState('right'); // 'right' or 'left'
+
+    useEffect(() => {
+        setHeaderTitle('Plate Tapping');
+        return () => setHeaderTitle('');
+    }, []);
 
     // Timers
     const [timeLeft, setTimeLeft] = useState(10);
@@ -171,7 +177,6 @@ const HandTappingTest = () => {
                         </div>
                     </div>
 
-                    <h2 className="text-2xl font-black text-slate-900 mb-2">Plate Tapping</h2>
                     <p className="text-sm text-slate-500 font-medium uppercase tracking-wider mb-6">Test de Control</p>
 
                     <div className="w-full bg-slate-50 p-5 rounded-2xl text-left border border-slate-100 mb-2">
@@ -223,7 +228,7 @@ const HandTappingTest = () => {
 
                 <button
                     onClick={handleStartClick}
-                    className="btn-primary w-full max-w-xs py-5 shadow-2xl shadow-blue-500/30 flex items-center justify-center gap-3"
+                    className="w-full max-w-xs bg-blue-600 hover:bg-blue-700 text-white font-bold py-5 rounded-xl transition-all shadow-2xl shadow-blue-500/30 flex items-center justify-center gap-3"
                 >
                     <Play size={24} fill="currentColor" />
                     EMPEZAR

@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import useStore from '../../store/useStore';
 import html2canvas from 'html2canvas';
 import {
-    Trophy, Share2, Activity, Info,
-    Zap, Dumbbell, Shuffle, Orbit, PersonStanding, Settings, Trash2,
-    MessageCircle, Globe, ChevronDown, ExternalLink, History,
-    ArrowDown, ArrowUp, Clock, Flame, Heart, Wind, Target, ArrowUpCircle, Anchor, RotateCw, Maximize2, Camera, X, LogOut
+    Activity, ArrowDown, ArrowUp, ArrowUpCircle, Award, Calendar, ChevronRight, Clock,
+    Dumbbell, Flame, History, Layout, Maximize2, MoreHorizontal, Orbit, PersonStanding, RotateCw,
+    Share2, Shuffle, Target, Trophy, Users, Wind, Zap, Anchor, Scale, UserCheck,
+    Camera, Info, X, Trash2, Heart, ExternalLink, Settings, MessageCircle, Globe, ChevronDown
 } from 'lucide-react';
 import RadarChart from '../common/RadarChart';
 import clsx from 'clsx';
+import { calculateMetrics } from '../../utils/scoring';
 
 const ResultsDashboard = () => {
     const navigate = useNavigate();
@@ -19,300 +20,153 @@ const ResultsDashboard = () => {
     const shareRef = useRef(null);
 
     // --- Unified Scoring Logic (Synced with Home.jsx) ---
-    // --- Unified Scoring Logic (Synced with Home.jsx) ---
-    const metrics = useMemo(() => {
-        const normalize = (val, max) => Math.min(100, Math.max(0, (val / max) * 100));
+    const metrics = useMemo(() => calculateMetrics(results, user.level), [results, user.level]);
 
-        // Define Caps based on Level
-        const getCaps = (lvl) => {
-            switch (lvl) {
-                case 'advanced': return { squat: 75, pushup: 60, plank: 180, burpee: 60, vo2: 65, stork: 60, hops: 60, tapping: 40 };
-                case 'adapted': return { squat: 30, pushup: 15, plank: 60, burpee: 20, vo2: 35, stork: 30, hops: 30, tapping: 20 };
-                default: return { squat: 50, pushup: 40, plank: 120, burpee: 40, vo2: 50, stork: 60, hops: 50, tapping: 30 }; // General
-            }
-        };
-        const caps = getCaps(user.level || 'general');
-
-        // 1. Strength
-        let strengthRaw = 0, strengthMax = 0;
-        if (results.strength?.squat) { strengthRaw += Math.min(results.strength.squat.reps, caps.squat); strengthMax += caps.squat; }
-        if (results.strength?.pushup) { strengthRaw += Math.min(results.strength.pushup.reps, caps.pushup); strengthMax += caps.pushup; }
-        if (results.strength?.plank) { strengthRaw += Math.min(results.strength.plank.time, caps.plank); strengthMax += caps.plank; }
-        const strength = strengthMax > 0 ? normalize(strengthRaw, strengthMax) : 0;
-
-        // 2. Cardio
-        let cardio = 0;
-        if (results.cardio?.vo2) cardio = normalize(results.cardio.vo2, caps.vo2);
-        else if (results.cardio?.cooper) cardio = normalize(results.cardio.cooper.vo2, caps.vo2);
-        else if (results.cardio?.rockport) cardio = normalize(results.cardio.rockport.vo2, caps.vo2);
-        else if (results.cardio?.step) cardio = normalize(results.cardio.step.vo2, caps.vo2);
-        else if (results.cardio?.ruffier) cardio = normalize(Math.max(0, 20 - results.cardio.ruffier.score), 20); // Fixed scale
-        else if (results.cardio?.burpee) cardio = normalize(results.cardio.burpee.reps, caps.burpee);
-
-        // 3. Control
-        let coordRaw = 0, coordMax = 0;
-        if (results.agility?.tapping) {
-            const tapAvg = (results.agility.tapping.right + results.agility.tapping.left) / 2;
-            let tapScore = normalize(tapAvg, caps.tapping);
-            // Asymmetry Penalty: -2 pts for every 1% over 10%
-            if (results.agility.tapping.asymmetry > 10) {
-                tapScore -= (results.agility.tapping.asymmetry - 10) * 2;
-            }
-            coordRaw += Math.max(0, tapScore); coordMax += 100;
-        }
-        if (results.agility?.hops) { coordRaw += results.agility.hops.count; coordMax += caps.hops; }
-        if (results.agility?.blindStork) { coordRaw += results.agility.blindStork.time; coordMax += caps.stork; }
-        const control = coordMax > 0 ? normalize(coordRaw, coordMax) : 0;
-
-        // 4. Mobility
-        let mobRaw = 0, mobMax = 0;
-        if (results.mobility?.shoulder) { mobRaw += results.mobility.shoulder.score; mobMax += 6; }
-        if (results.mobility?.overheadSquat) { mobRaw += results.mobility.overheadSquat.score; mobMax += 3; }
-        const mobility = mobMax > 0 ? normalize(mobRaw, mobMax) : 0;
-
-        // 5. Composition
-        let composition = 0;
-        if (results.composition?.bmi) {
-            let pts = 50;
-            const bmi = parseFloat(results.composition.bmi);
-
-            // BMI Penalties (Standard)
-            if (bmi > 25) pts -= (bmi - 25) * 2;
-            if (bmi < 18.5) pts -= (18.5 - bmi) * 2;
-
-            // ATHLETE ADJUSTMENT: If FFMI is high, mitigate BMI penalty
-            const ffmi = parseFloat(results.composition.ffmi || 0);
-            if (ffmi > 22 && bmi > 25) {
-                pts += (bmi - 25) * 2; // Refund penalty
-                pts += 10; // Bonus for muscle mass
-            }
-
-            // Health Bonus for Waist-to-Height Ratio (ICA)
-            // ICA <= 0.5 is excellent health indicator
-            if (results.composition.whtr) {
-                const ica = parseFloat(results.composition.whtr);
-                if (ica <= 0.5) pts += 20;
-                else if (ica <= 0.55) pts += 10;
-            }
-
-            composition = Math.min(100, Math.max(0, pts));
-        }
-
-        // Total Average
-        let totalSum = 0, count = 0;
-        if (strengthMax > 0) { totalSum += strength; count++; }
-        if (cardio > 0) { totalSum += cardio; count++; }
-        if (coordMax > 0) { totalSum += control; count++; }
-        if (mobMax > 0) { totalSum += mobility; count++; }
-        if (results.composition?.bmi) { totalSum += composition; count++; }
-
-        const total = count > 0 ? Math.round(totalSum / count) : 0;
-
-        return { strength, cardio, control, mobility, composition, total };
-    }, [results, user.level]);
-
-    const totalScore = metrics.total;
-
-    const level = useMemo(() => {
-        if (totalScore >= 80) return { name: 'Atleta Élite', color: 'from-purple-500 to-indigo-600', text: 'text-purple-600', icon: Trophy };
-        if (totalScore >= 50) return { name: 'En Forma', color: 'from-green-400 to-emerald-600', text: 'text-green-600', icon: Zap };
-        if (totalScore >= 20) return { name: 'Iniciado', color: 'from-blue-400 to-blue-600', text: 'text-blue-600', icon: Zap };
-        return { name: 'Principiante', color: 'from-slate-400 to-slate-600', text: 'text-slate-600', icon: Dumbbell };
-    }, [totalScore]);
-
-    const radarData = [
-        { label: 'Energía', value: Math.round(metrics.cardio), color: 'bg-orange-500', icon: Zap },
-        { label: 'Fuerza', value: Math.round(metrics.strength), color: 'bg-purple-500', icon: Dumbbell },
-        { label: 'Control', value: Math.round(metrics.control), color: 'bg-blue-500', icon: Orbit },
-        { label: 'Movilidad', value: Math.round(metrics.mobility), color: 'bg-pink-500', icon: Shuffle },
-        { label: 'Cuerpo', value: Math.round(metrics.composition), color: 'bg-teal-500', icon: PersonStanding },
-    ];
-
-    const Icon = level.icon;
+    // Data mapped for Radar Chart (Array format)
+    const chartData = useMemo(() => [
+        { label: 'Fuerza', value: metrics.strength, color: 'bg-purple-500', icon: Dumbbell },
+        { label: 'Energía', value: metrics.energy, color: 'bg-orange-500', icon: Zap },
+        { label: 'Cuerpo', value: metrics.body, color: 'bg-teal-500', icon: PersonStanding },
+        { label: 'Control', value: metrics.control, color: 'bg-blue-500', icon: Orbit },
+        { label: 'Movilidad', value: metrics.mobility, color: 'bg-pink-500', icon: Shuffle }
+    ], [metrics]);
 
     const handleShare = async () => {
         if (!shareRef.current) return;
-
         try {
-            const canvas = await html2canvas(shareRef.current, {
-                scale: 2,
-                backgroundColor: '#ffffff',
-                useCORS: true,
-                logging: false,
-                onclone: (clonedDoc) => {
-                    // Fix bg-clip-text issue by fallback to solid color during capture
-                    const title = clonedDoc.getElementById('share-level-title');
-                    if (title) {
-                        title.style.background = 'none';
-                        title.style.webkitTextFillColor = 'initial';
-                        title.className = `text-4xl font-black mb-4 ${level.text}`;
-                    }
-                }
-            });
-
-            canvas.toBlob(async (blob) => {
-                if (!blob) return;
-                const file = new File([blob], '2befitest-score.png', { type: 'image/png' });
-                const text = `¡Soy Nivel ${level.name} en 2BeFiTest! 🚀\nScore: ${totalScore}/100\n\n¿Te atreves?`;
-
-                const shareData = {
-                    title: '2BeFiTest - Mi Nivel',
-                    text: text,
-                    files: [file]
-                };
-
-                if (navigator.canShare && navigator.canShare(shareData)) {
-                    await navigator.share(shareData);
-                } else {
-                    const link = document.createElement('a');
-                    link.download = '2befitest-score.png';
-                    link.href = canvas.toDataURL();
-                    link.click();
-                    // alert('Result downloaded!');
-                }
-            }, 'image/png');
+            const canvas = await html2canvas(shareRef.current);
+            const image = canvas.toDataURL("image/png");
+            const link = document.createElement('a');
+            link.href = image;
+            link.download = `FitnessTest_Report_${new Date().toISOString().split('T')[0]}.png`;
+            link.click();
         } catch (err) {
-            console.error("Error generating share image:", err);
+            console.error("Share failed", err);
         }
     };
 
     return (
-        <div className="flex flex-col h-full overflow-y-auto pb-40 bg-slate-50">
-            {/* Hero Card */}
-            <div ref={shareRef} className="relative bg-white pt-16 pb-8 px-6 rounded-b-[48px] shadow-sm mb-4 z-10">
-                <div className={`absolute top-0 left-0 w-full h-2 bg-gradient-to-r ${level.color}`}></div>
-
-                <div className="flex flex-col items-center text-center relative z-10">
-                    <div className={clsx("w-24 h-24 rounded-full bg-gradient-to-br flex items-center justify-center shadow-2xl shadow-slate-200 mb-4 border-4 border-white ring-1 ring-slate-100", level.color)}>
-                        <Icon className="text-white w-10 h-10" />
-                    </div>
-
-                    <h2 className="text-sm font-bold tracking-[0.2em] uppercase text-slate-400 mb-2">Nivel Actual</h2>
-                    <h1 id="share-level-title" className={clsx("text-4xl font-black mb-4 bg-clip-text text-transparent bg-gradient-to-r", level.color)}>
-                        {level.name}
-                    </h1>
-
-                    {/* Progress Bar */}
-                    <div className="w-full max-w-xs bg-slate-100 h-3 rounded-full overflow-hidden relative mb-2">
-                        <div
-                            className={clsx("h-full bg-gradient-to-r transition-all duration-1000 ease-out", level.color)}
-                            style={{ width: `${totalScore}%` }}
-                        ></div>
-                    </div>
-                    <p className="font-mono font-bold text-slate-400 text-sm mb-4">{totalScore} <span className="text-slate-300 font-normal">/ 100 PTS</span></p>
-
-                    {/* Radar Chart Integration */}
-                    <div className="flex justify-center -mb-8 scale-90 origin-top">
-                        <RadarChart data={radarData} size={280} />
-                    </div>
-                </div>
+        <div className="bg-slate-50 min-h-screen pb-24 font-sans">
+            {/* Header / Top Bar */}
+            <div className="sticky top-0 p-4 pt-6 flex items-center justify-center z-10">
+                <h1 className="text-lg font-black text-slate-900 uppercase tracking-wide text-center w-full">
+                    Mi Perfil
+                </h1>
             </div>
 
-            {/* Metrics Grid */}
-            <div className="px-6 space-y-4">
-                <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-slate-900 text-lg">Métricas Clave</h3>
-                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
-                        <Activity size={16} />
+            <div ref={shareRef} className="p-4 space-y-6 max-w-md mx-auto">
+
+                {/* User Identity Card */}
+                {/* User Identity Card */}
+                <div className="bg-white rounded-[2rem] p-6 shadow-xl shadow-slate-200 border border-slate-100 relative overflow-hidden flex flex-col items-center text-center">
+
+                    <span className="text-[10px] bg-slate-100 text-slate-500 font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-3">
+                        NIVEL ACTUAL
+                    </span>
+
+                    <h2 className="text-3xl font-black text-slate-900 leading-tight mb-2">
+                        {user.level ? user.level.charAt(0).toUpperCase() + user.level.slice(1) : 'Principiante'}
+                    </h2>
+
+                    <p className="text-slate-400 font-medium text-sm mb-6">
+                        {user.name ? `Hola, ${user.name}` : 'Miembro verificado'}
+                    </p>
+
+                    {/* Progress Bar & Score */}
+                    <div className="w-full max-w-[200px] space-y-2">
+                        <div className="h-3 bg-slate-100 rounded-full overflow-hidden relative">
+                            <div
+                                className="h-full bg-slate-900 rounded-full transition-all duration-1000 ease-out absolute top-0 left-0 shadow-sm"
+                                style={{ width: `${Math.round((metrics.strength + metrics.energy + metrics.body + metrics.control + metrics.mobility) / 5)}%` }}
+                            />
+                        </div>
+                        <p className="text-xs font-bold text-slate-400 tracking-widest">
+                            {Math.round((metrics.strength + metrics.energy + metrics.body + metrics.control + metrics.mobility) / 5)} / 100 PTS
+                        </p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-6">
+                {/* Radar Chart Section */}
+                <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 flex flex-col items-center">
+                    <RadarChart data={chartData} size={280} />
+                </div>
+
+                {/* Detailed Metrics Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                    {/* Strength */}
                     <MetricCard
                         title="Fuerza"
-                        items={[
-                            results.strength?.squat && { label: "Sentadilla", value: results.strength.squat.reps, icon: ArrowDown },
-                            results.strength?.pushup && { label: "Flexiones", value: results.strength.pushup.reps, icon: ArrowUp },
-                            results.strength?.plank && { label: "Plancha", value: results.strength.plank.time + "s", icon: Clock }
-                        ].filter(Boolean)}
                         icon={Dumbbell}
                         color="bg-purple-50 text-purple-600"
-                    />
-                    <MetricCard
-                        title="Energía"
                         items={[
-                            results.cardio?.burpee && { label: "Burpees", value: results.cardio.burpee.reps, icon: Flame },
-                            results.cardio?.ruffier && { label: "Ruffier", value: results.cardio.ruffier.score, icon: Heart },
-                            results.cardio?.step && { label: "VO2 Max", value: results.cardio.step.vo2, icon: Wind },
-                            results.cardio?.cooper && { label: "Cooper", value: results.cardio.cooper.vo2, icon: Footprints },
-                            results.cardio?.rockport && { label: "Rockport", value: results.cardio.rockport.vo2 || "OK", icon: Wind }
-                        ].filter(Boolean)}
-                        icon={Zap}
-                        color="bg-orange-50 text-orange-600"
-                    />
-                    <MetricCard
-                        title="Control"
-                        items={[
-                            results.agility?.tapping && { label: "Tapping", value: Math.round((results.agility.tapping.right + results.agility.tapping.left) / 2) + " reps", icon: Target },
-                            results.agility?.hops && { label: "Saltos", value: results.agility.hops.count, icon: ArrowUpCircle },
-                            results.agility?.blindStork && { label: "Cigüeña", value: results.agility.blindStork.time + "s", icon: Anchor }
-                        ].filter(Boolean)}
-                        icon={Orbit}
-                        color="bg-blue-50 text-blue-600"
-                    />
-                    <MetricCard
-                        title="Movilidad"
-                        items={[
-                            results.mobility?.shoulder && { label: "Hombro", value: results.mobility.shoulder.score + " pts", icon: RotateCw },
-                            results.mobility?.overheadSquat && { label: "Overhead", value: results.mobility.overheadSquat.score + " pts", icon: Maximize2 }
-                        ].filter(Boolean)}
-                        icon={Shuffle}
-                        color="bg-pink-50 text-pink-600"
+                            { icon: ArrowUp, label: 'Flexiones', value: results.strength?.pushup?.reps || '-' },
+                            { icon: ArrowDown, label: 'Sentadillas', value: results.strength?.squat?.reps || '-' },
+                            { icon: Clock, label: 'Plancha', value: results.strength?.plank?.time ? `${results.strength.plank.time}s` : '-' }
+                        ]}
                     />
 
-                    {/* Custom Body Composition Card */}
+                    {/* Energy */}
+                    <MetricCard
+                        title="Energía"
+                        icon={Zap}
+                        color="bg-orange-50 text-orange-600"
+                        items={[
+                            { icon: Flame, label: 'Burpees', value: results.cardio?.burpee?.reps || '-' },
+                            {
+                                icon: Wind,
+                                label: results.cardio?.cooper?.vo2Max ? 'Cooper' : (results.cardio?.rockport?.vo2Max ? 'Rockport' : (user.level === 'advanced' ? 'Cooper' : 'Rockport')),
+                                value: results.cardio?.rockport?.vo2Max || results.cardio?.cooper?.vo2Max || '-'
+                            },
+                            { icon: Activity, label: 'Step', value: results.cardio?.ruffier?.score ? results.cardio.ruffier.score : '-' }
+                        ]}
+                    />
+
+                    {/* Control (Agility) */}
+                    <MetricCard
+                        title="Control"
+                        icon={Orbit}
+                        color="bg-blue-50 text-blue-600"
+                        items={[
+                            { icon: Target, label: 'Tapping', value: results.agility?.tapping?.count || '-' },
+                            { icon: Anchor, label: 'Cigüeña', value: results.agility?.blindStork?.time ? `${results.agility.blindStork.time}s` : '-' },
+                            { icon: ArrowUpCircle, label: 'Saltos Lat.', value: results.agility?.hops?.count || '-' }
+                        ]}
+                    />
+
+                    {/* Mobility */}
+                    <MetricCard
+                        title="Movilidad"
+                        icon={Shuffle}
+                        color="bg-pink-50 text-pink-600"
+                        items={[
+                            { icon: Maximize2, label: 'Hombros', value: results.mobility?.shoulder?.gap ? `${results.mobility.shoulder.gap}cm` : '-' },
+                            { icon: UserCheck, label: 'Sentadilla OH', value: results.mobility?.overheadSquat?.score ? `${results.mobility.overheadSquat.score}/3` : '-' },
+                            { icon: RotateCw, label: 'Asimetría', value: results.mobility?.shoulder?.difference ? `${results.mobility.shoulder.difference}cm` : '-' }
+                        ]}
+                    />
+
+                    {/* Body Composition (Full Width) */}
                     <BodyCompositionCard results={results} />
                 </div>
 
-                {/* Profile Management Actions */}
-                <div className="flex gap-4 mb-6">
-                    <button
-                        onClick={() => navigate('/level')}
-                        className="flex-1 bg-white border border-slate-200 text-slate-600 font-bold py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                    >
-                        <Settings size={20} /> Editar Nivel
-                    </button>
+                {/* Actions & Footer */}
+                <div className="flex gap-4">
                     {hasAuth ? (
                         <button
                             onClick={() => navigate('/history')}
-                            className="flex-1 bg-purple-50 border border-purple-100 text-purple-600 font-bold py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                            className="flex-1 bg-white border border-slate-200 text-slate-600 font-bold py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform"
                         >
                             <History size={20} /> Historial
                         </button>
                     ) : (
                         <button
                             onClick={() => navigate('/login')}
-                            className="flex-1 bg-blue-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg shadow-blue-500/30"
+                            className="flex-1 bg-emerald-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg shadow-emerald-500/30"
                         >
                             <Trophy size={20} /> Guardar Progreso
                         </button>
                     )}
                 </div>
-
-                {/* Contact & Premium Section */}
-                <ContactSection />
-
-
-                {hasAuth && (
-                    <div className="flex gap-4 mb-6">
-                        <button
-                            onClick={async () => {
-                                try {
-                                    const { signOut } = await import('firebase/auth');
-                                    const { auth } = await import('../../lib/firebase');
-                                    await signOut(auth);
-                                    useStore.getState().setAuthUser(null);
-                                    navigate('/login');
-                                } catch (error) {
-                                    console.error("Logout Error:", error);
-                                }
-                            }}
-                            className="flex-1 bg-slate-900 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg shadow-slate-300"
-                        >
-                            <LogOut size={20} /> Cerrar Sesión
-                        </button>
-                    </div>
-                )}
 
                 {hasAuth && (
                     <div className="flex gap-4 mb-6">
@@ -324,8 +178,6 @@ const ResultsDashboard = () => {
                         </button>
                     </div>
                 )}
-
-
 
                 <button
                     onClick={handleShare}
@@ -355,9 +207,6 @@ const BodyCompositionCard = ({ results }) => {
                     </div>
                     <div>
                         <h4 className="font-bold text-slate-800 text-base">Cuerpo</h4>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">
-                            {hasData ? 'Actualizado' : 'Pendiente'}
-                        </p>
                     </div>
                 </div>
                 {hasData && (
@@ -503,11 +352,7 @@ const MetricCard = ({ title, items = [], icon: Icon, color, className = "", isFu
                             </button>
                         )}
                     </div>
-                    {!isFullWidth && (
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">
-                            {hasData ? 'Completado' : 'Pendiente'}
-                        </p>
-                    )}
+                    {/* Subtitle Removed */}
                 </div>
             </div>
 
@@ -552,69 +397,6 @@ const MetricCard = ({ title, items = [], icon: Icon, color, className = "", isFu
                     {explanation}
                 </div>
             )}
-        </div>
-    );
-};
-
-const ContactSection = () => {
-    const [isOpen, setIsOpen] = React.useState(false);
-
-    return (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden mb-6 transition-all">
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex items-center justify-between p-5 text-left active:bg-slate-50 transition-colors"
-            >
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                        <MessageCircle size={20} />
-                    </div>
-                    <div>
-                        <h4 className="font-bold text-slate-900 text-sm">Contacto & Planes</h4>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">
-                            Dudas y Premium
-                        </p>
-                    </div>
-                </div>
-                <ChevronDown
-                    size={20}
-                    className={clsx("text-slate-300 transition-transform duration-300", isOpen && "rotate-180")}
-                />
-            </button>
-
-            {/* Collapsible Content */}
-            <div className={clsx(
-                "grid gap-3 px-5 overflow-hidden transition-all duration-300",
-                isOpen ? "pb-5 opacity-100 max-h-40" : "pb-0 opacity-0 max-h-0"
-            )}>
-                {/* Instagram Button (Green) */}
-                <a
-                    href="https://instagram.com/2befit.online"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between bg-green-500 text-white p-4 rounded-2xl shadow-lg shadow-green-200 active:scale-95 transition-transform"
-                >
-                    <div className="flex items-center gap-3">
-                        <MessageCircle size={20} className="fill-current opacity-90" />
-                        <span className="font-bold text-sm">@2befit.online</span>
-                    </div>
-                    <ExternalLink size={16} className="opacity-60" />
-                </a>
-
-                {/* Web Button (Black) */}
-                <a
-                    href="https://2befit.vercel.app/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between bg-slate-900 text-white p-4 rounded-2xl shadow-lg shadow-slate-200 active:scale-95 transition-transform"
-                >
-                    <div className="flex items-center gap-3">
-                        <Globe size={20} className="opacity-90" />
-                        <span className="font-bold text-sm">2BEFIT PREMIUM</span>
-                    </div>
-                    <ExternalLink size={16} className="opacity-60" />
-                </a>
-            </div>
         </div>
     );
 };

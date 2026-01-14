@@ -9,6 +9,12 @@ const RuffierTest = () => {
     const navigate = useNavigate();
     const setTestResult = useStore((state) => state.setTestResult);
     const user = useStore((state) => state.user);
+    const setHeaderTitle = useStore((state) => state.setHeaderTitle);
+
+    useEffect(() => {
+        setHeaderTitle('Test de Ruffier');
+        return () => setHeaderTitle('');
+    }, []);
 
     // Stages: 'intro', 'p0_input', 'ready', 'exercise', 'p1_input', 'rest', 'p2_input', 'result'
     const [stage, setStage] = useState('intro');
@@ -108,7 +114,7 @@ const RuffierTest = () => {
                     <div className="bg-rose-100 p-4 rounded-full text-rose-600 mb-4">
                         <Heart className="w-10 h-10" />
                     </div>
-                    <h2 className="text-2xl font-black text-slate-900 mb-2">Test de Ruffier</h2>
+
                     <p className="text-sm text-slate-500 font-medium uppercase tracking-wider mb-6">Resistencia Cardíaca Avanzada</p>
 
                     <div className="w-full bg-slate-50 p-5 rounded-2xl text-left border border-slate-100 mb-2">

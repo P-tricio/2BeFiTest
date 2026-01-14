@@ -62,7 +62,7 @@ const SelectionScreen = () => {
         <div className="flex flex-col h-full relative bg-slate-50 overflow-hidden">
             {/* Decorative Background Elements */}
             <div className="absolute top-[-10%] right-[-10%] w-[300px] h-[300px] bg-orange-200/20 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute bottom-[-10%] left-[-10%] w-[250px] h-[250px] bg-blue-200/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-[-10%] left-[-10%] w-[250px] h-[250px] bg-emerald-200/20 rounded-full blur-3xl pointer-events-none" />
 
             {/* Main Content Centered */}
             <div className="flex-1 flex flex-col justify-center p-6 space-y-8 relative z-10 max-w-md mx-auto w-full">
@@ -78,7 +78,7 @@ const SelectionScreen = () => {
                         <span className={clsx(
                             "text-xs font-black uppercase tracking-wider",
                             level === 'adapted' ? "text-green-600" :
-                                level === 'advanced' ? "text-red-600" : "text-blue-600"
+                                level === 'advanced' ? "text-red-600" : "text-emerald-600"
                         )}>
                             {level || 'General'}
                         </span>
@@ -325,7 +325,7 @@ const StepTest = () => {
                 </div>
 
                 <div className="mt-12 text-slate-500 text-sm font-mono flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                     Metrónomo (96 BPM)
                 </div>
             </div>
@@ -351,7 +351,7 @@ const StepTest = () => {
                         value={hr}
                         onChange={(e) => setHr(e.target.value)}
                         placeholder="Ej. 120"
-                        className="w-full text-center text-5xl font-black text-slate-900 outline-none placeholder:text-slate-200 border-b-2 border-slate-100 focus:border-blue-500 transition-colors pb-2"
+                        className="w-full text-center text-5xl font-black text-slate-900 outline-none placeholder:text-slate-200 border-b-2 border-slate-100 focus:border-emerald-500 transition-colors pb-2"
                     />
                 </div>
 

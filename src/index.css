@@ -27,7 +27,7 @@
   }
 
   .card-hover {
-    @apply hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1 hover:border-blue-100;
+    @apply hover:shadow-xl hover:shadow-emerald-500/10 hover:-translate-y-1 hover:border-emerald-100;
   }
 
   /* Glassmorphism */
@@ -41,7 +41,7 @@
 
   /* Primary Gradient Button */
   .btn-primary {
-    @apply bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-500/30 active:scale-95 transition-all duration-200;
+    @apply bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-2xl shadow-lg shadow-emerald-500/30 active:scale-95 transition-all duration-200;
   }
 
   /* Surface Colors */
