@@ -23,3 +23,21 @@ dist-ssr
 *.sln
 *.sw?
 .env
+# Security & Environment variables
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+*.kdbx
+id_rsa*
+id_ed25519*
+*credentials*.json
+*serviceAccountKey*.json
+*firebase-adminsdk*.json
+secrets.*
+repomix-output.xml
